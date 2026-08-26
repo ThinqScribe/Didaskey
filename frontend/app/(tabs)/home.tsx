@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,7 +16,6 @@ import { useAuthStore } from "@/lib/store/auth";
 import { getSubjects, searchTutors, type Subject, type TutorSummary } from "@/lib/api/tutors";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 
-import SearchBar from "@/components/ui/SearchBar";
 import SectionHeader from "@/components/ui/SectionHeader";
 import SubjectPill, { MorePill } from "@/components/home/SubjectPill";
 import TutorCard from "@/components/home/TutorCard";
@@ -24,10 +23,10 @@ import TutorCard from "@/components/home/TutorCard";
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [tutors, setTutors] = useState<TutorSummary[]>([]);
+  const [subjects, setSubjects]               = useState<Subject[]>([]);
+  const [tutors, setTutors]                   = useState<TutorSummary[]>([]);
   const [activeSubjectId, setActiveSubjectId] = useState<number | null>(null);
-  const [loadingTutors, setLoadingTutors] = useState(true);
+  const [loadingTutors, setLoadingTutors]     = useState(true);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
 
   const fetchSubjects = useCallback(async () => {
@@ -85,82 +84,117 @@ export default function HomeScreen() {
           />
         }
         contentContainerStyle={{
-          paddingHorizontal: Spacing.xl,
-          paddingTop: Spacing.base,
           paddingBottom: TabBar.height + TabBar.horizontalInset + Spacing.xl,
         }}
       >
-        <View className="flex-row items-center justify-between mb-5">
-          <View>
-            <Text className="text-[24px] font-sans-bold text-charcoal">
-              Hello, {firstName} 👋
-            </Text>
-            <Text className="text-[13px] font-sans-medium text-muted-foreground mt-0.5">
-              Ready to learn something new?
-            </Text>
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <View className="px-6 pt-6 pb-4">
+          <View className="flex-row items-center justify-between mb-5">
+            <View className="flex-1 mr-3">
+              <Text
+                className="text-[13px] font-sans-medium"
+                style={{ color: Colors.mutedForeground }}
+              >
+                Good {greeting()}
+              </Text>
+              <Text className="text-[24px] font-sans-bold text-charcoal mt-0.5">
+                {firstName} 👋
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => router.push("/(tabs)/profile")}
+              className="w-10 h-10 rounded-full bg-muted items-center justify-center"
+              hitSlop={8}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color={Colors.charcoal}
+              />
+            </Pressable>
           </View>
+
+          {/* Search bar */}
           <Pressable
-            onPress={() => router.push("/(tabs)/profile")}
-            className="w-10 h-10 rounded-full bg-white items-center justify-center"
-            hitSlop={8}
+            onPress={() => router.push("/(tabs)/search")}
+            className="flex-row items-center bg-white border border-border rounded-2xl px-4 h-12 gap-2.5"
+            style={{ shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 }}
           >
-            <Ionicons name="notifications-outline" size={20} color={Colors.deepTeal} />
+            <Ionicons
+              name="search-outline"
+              size={17}
+              color={Colors.mutedForeground}
+            />
+            <Text
+              className="flex-1 text-[14px] font-sans-medium"
+              style={{ color: Colors.mutedForeground }}
+            >
+              Search tutors or subjects…
+            </Text>
           </Pressable>
         </View>
 
-        <SearchBar
-          placeholder="Search tutors or subjects"
-          onPress={() => router.push("/(tabs)/search")}
-        />
-
-        {!loadingSubjects && subjects.length > 0 && (
-          <View className="mb-6">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: Spacing.base }}
-            >
-              {subjects.slice(0, 4).map((subject) => (
-                <SubjectPill
-                  key={subject.id}
-                  subject={subject}
-                  active={activeSubjectId === subject.id}
-                  onPress={() => handleSubjectPress(subject.id)}
-                />
-              ))}
-              <MorePill onPress={() => router.push("/(tabs)/search")} />
-            </ScrollView>
-          </View>
-        )}
-
-        <View className="mb-6">
-          <SectionHeader
-            title="Recommended Tutors"
-            actionLabel="View all"
-            onAction={() => router.push("/(tabs)/search")}
-          />
-          {loadingTutors ? (
-            <View className="py-8 items-center">
-              <ActivityIndicator color={Colors.teal} />
+        <View className="px-6 pt-2">
+          {/* Subject pills */}
+          {!loadingSubjects && subjects.length > 0 && (
+            <View className="mb-6">
+              <SectionHeader title="Browse Subjects" />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingRight: Spacing.base }}
+              >
+                {subjects.slice(0, 4).map((subject) => (
+                  <SubjectPill
+                    key={subject.id}
+                    subject={subject}
+                    active={activeSubjectId === subject.id}
+                    onPress={() => handleSubjectPress(subject.id)}
+                  />
+                ))}
+                <MorePill onPress={() => router.push("/(tabs)/search")} />
+              </ScrollView>
             </View>
-          ) : tutors.length === 0 ? (
-            <View className="py-8 items-center">
-              <Text className="text-sm font-sans-medium text-muted-foreground">
-                No tutors found
-              </Text>
-            </View>
-          ) : (
-            tutors.map((tutor) => (
-              <TutorCard
-                key={tutor.id}
-                tutor={tutor}
-                onPress={() => router.push(`/tutor/${tutor.id}`)}
-                onBookmark={() => {}}
-              />
-            ))
           )}
+
+          {/* Recommended tutors */}
+          <View className="mb-6">
+            <SectionHeader
+              title="Recommended Tutors"
+              actionLabel="View all"
+              onAction={() => router.push("/(tabs)/search")}
+            />
+            {loadingTutors ? (
+              <View className="py-10 items-center">
+                <ActivityIndicator color={Colors.teal} />
+              </View>
+            ) : tutors.length === 0 ? (
+              <View className="py-10 items-center">
+                <Ionicons name="people-outline" size={36} color={Colors.mutedForeground} />
+                <Text className="text-[14px] font-sans-medium text-muted-foreground mt-3">
+                  No tutors found
+                </Text>
+              </View>
+            ) : (
+              tutors.map((tutor) => (
+                <TutorCard
+                  key={tutor.id}
+                  tutor={tutor}
+                  onPress={() => router.push(`/tutor/${tutor.id}`)}
+                  onBookmark={() => {}}
+                />
+              ))
+            )}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
 }

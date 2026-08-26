@@ -33,7 +33,12 @@ export function useAuth() {
     setError(null);
     try {
       await signIn(payload);
-      router.replace("/(tabs)/home");
+      const role = useAuthStore.getState().user?.role;
+      if (role === "tutor") {
+        router.replace("/(tutor)/dashboard");
+      } else {
+        router.replace("/(tabs)/home");
+      }
     } catch (err) {
       setError(extractErrorMessage(err, "Sign in failed. Please try again."));
     } finally {

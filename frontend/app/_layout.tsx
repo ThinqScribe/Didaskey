@@ -2,15 +2,9 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-import Constants from "expo-constants";
-import { PaystackProvider } from "react-native-paystack-webview";
 import "@/global.css";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
-
-// Public key is safe to embed — it is not a secret.
-const PAYSTACK_PUBLIC_KEY: string =
-  (Constants.expoConfig?.extra?.paystackPublicKey as string) ?? "";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -31,13 +25,11 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <PaystackProvider publicKey={PAYSTACK_PUBLIC_KEY}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#F5F0E8" },
-        }}
-      />
-    </PaystackProvider>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: "#F5F0E8" },
+      }}
+    />
   );
 }

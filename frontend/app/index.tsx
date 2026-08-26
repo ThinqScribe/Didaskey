@@ -8,11 +8,10 @@
 import { useEffect, useRef } from "react";
 import { router } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
-
 import { useAuthStore } from "@/lib/store/auth";
 
 export default function Index() {
-  const { status, bootstrap } = useAuthStore();
+  const { status, bootstrap, user } = useAuthStore();
   const mounted = useRef(false);
 
   useEffect(() => {
@@ -23,18 +22,22 @@ export default function Index() {
   useEffect(() => {
     if (status === "loading") return;
 
-    // Defer by one tick so RootLayout's Stack has mounted
     const t = setTimeout(() => {
       if (!mounted.current) return;
       if (status === "authenticated") {
-        router.replace("/(tabs)/home");
+        const role = user?.role;
+        if (role === "tutor") {
+          router.replace("/(tutor)/dashboard");
+        } else {
+          router.replace("/(tabs)/home");
+        }
       } else {
         router.replace("/(auth)/sign-in");
       }
     }, 0);
 
     return () => clearTimeout(t);
-  }, [status]);
+  }, [status, user?.role]);
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F5F0E8" }}>

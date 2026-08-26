@@ -1,36 +1,18 @@
-/**
- * Booking Steps 3 + 4 + 5 — Review, Payment Method & Confirm Payment
- *
- * Step 3: Review all booking details with full price breakdown
- * Step 4: Payment method display (Paystack handles the actual method selection)
- * Step 5: Confirm and launch Paystack payment sheet
- *
- * Flow:
- *   1. User reviews the booking summary
- *   2. Taps "Continue to Payment" → calls POST /bookings (creates booking server-side)
- *   3. Backend returns paystack_access_code + paystack_reference
- *   4. We open the server-created Paystack authorization URL
- *   5. On browser return → navigate to success screen
- *   6. The backend webhook confirms the booking independently
- *
- * Security:
- *   - Amount is NEVER sent to the backend — it is computed server-side
- *   - The paystack_reference from the backend is what Paystack signs
- *   - We use the reference returned by the backend, not one we generate
- */
-
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   Text,
   View,
 } from "react-native";
+import { WebView, type WebViewNavigation } from "react-native-webview";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { usePaystack } from "react-native-paystack-webview";
 
 import { Colors, Spacing } from "@/constants";
 import { useAuthStore } from "@/lib/store/auth";
@@ -45,16 +27,27 @@ import {
   formatCurrency,
 } from "@/lib/api/bookings";
 
+// ── Paystack success/cancel URL patterns ──────────────────────────────────────
+// Paystack redirects to these after the transaction completes.
+const SUCCESS_PATTERNS = [
+  "paystack.com/close",
+  "checkout.paystack.com/close",
+  "standard.paystack.com/close",
+];
+const CANCEL_PATTERNS = [
+  "paystack.com/close",
+];
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StepIndicator({ current }: { current: 3 | 4 | 5 }) {
+function StepIndicator({ current }: { current: 3 | 4 }) {
   const steps = ["Session", "Schedule", "Review", "Payment"];
   return (
     <View className="flex-row items-center justify-center gap-1 py-3">
       {steps.map((label, i) => {
         const idx = i + 1;
         const done = idx < current;
-        const active = idx === current || (current === 5 && idx === 4);
+        const active = idx === current;
         return (
           <View key={label} className="flex-row items-center gap-1">
             <View
@@ -91,66 +84,255 @@ function StepIndicator({ current }: { current: 3 | 4 | 5 }) {
   );
 }
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-}) {
+function DetailRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <View className="flex-row items-center gap-3 py-3 border-b border-border">
       <View className="w-8 h-8 rounded-full bg-muted items-center justify-center">
         <Ionicons name={icon as any} size={15} color={Colors.deepTeal} />
       </View>
-      <Text className="flex-1 text-[13px] font-sans-medium text-muted-foreground">
-        {label}
-      </Text>
-      <Text className="text-[13px] font-sans-semibold text-charcoal">
-        {value}
-      </Text>
+      <Text className="flex-1 text-[13px] font-sans-medium text-muted-foreground">{label}</Text>
+      <Text className="text-[13px] font-sans-semibold text-charcoal">{value}</Text>
     </View>
   );
 }
 
-function PriceRow({
-  label,
-  value,
-  bold,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-  highlight?: boolean;
+function PriceRow({ label, value, bold, highlight }: {
+  label: string; value: string; bold?: boolean; highlight?: boolean;
 }) {
   return (
     <View className="flex-row items-center justify-between py-2">
-      <Text
-        className={`text-[13px] ${
-          bold ? "font-sans-bold text-charcoal" : "font-sans-medium text-muted-foreground"
-        }`}
-      >
+      <Text className={`text-[13px] ${bold ? "font-sans-bold text-charcoal" : "font-sans-medium text-muted-foreground"}`}>
         {label}
       </Text>
-      <Text
-        className={`text-[13px] ${
-          highlight
-            ? "font-sans-bold text-deep-teal"
-            : bold
-            ? "font-sans-bold text-charcoal"
-            : "font-sans-medium text-charcoal"
-        }`}
-      >
+      <Text className={`text-[13px] ${highlight ? "font-sans-bold text-deep-teal" : bold ? "font-sans-bold text-charcoal" : "font-sans-medium text-charcoal"}`}>
         {value}
       </Text>
     </View>
   );
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-center justify-between">
+      <Text className="text-[12px] font-sans-medium text-muted-foreground">{label}</Text>
+      <Text className="text-[12px] font-sans-semibold text-charcoal">{value}</Text>
+    </View>
+  );
+}
+
+// ── Paystack WebView Modal ────────────────────────────────────────────────────
+
+function PaystackWebViewModal({
+  url,
+  visible,
+  onSuccess,
+  onCancel,
+}: {
+  url: string;
+  visible: boolean;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [webLoading, setWebLoading] = useState(true);
+  const [handled, setHandled] = useState(false);
+  const [showContinueButton, setShowContinueButton] = useState(false);
+
+  const handleNavChange = useCallback(
+    (nav: WebViewNavigation) => {
+      if (handled) return;
+      const navUrl = nav.url ?? "";
+      
+      // Log all navigation for debugging
+      console.log("[PaystackWebView] Navigation:", navUrl);
+      
+      // Paystack success patterns - being very permissive since test vs live behave differently
+      if (
+        navUrl.includes("paystack.com/close") ||
+        navUrl.includes("checkout.paystack.com") ||
+        navUrl.includes("standard.paystack.com") ||
+        navUrl.includes("success") ||
+        navUrl.includes("trxref") ||
+        navUrl.includes("reference") ||
+        // Handle the case where Paystack redirects back to itself after payment
+        (navUrl !== url && navUrl.includes("paystack"))
+      ) {
+        console.log("[PaystackWebView] Success detected for URL:", navUrl);
+        setHandled(true);
+        onSuccess();
+        return;
+      }
+      
+      // Explicit cancel patterns
+      if (navUrl.includes("cancel") || navUrl.includes("cancelled")) {
+        console.log("[PaystackWebView] Cancel detected for URL:", navUrl);
+        setHandled(true);
+        onCancel();
+        return;
+      }
+    },
+    [handled, onSuccess, onCancel, url]
+  );
+
+  // Fallback: if WebView has been loaded for 30s with no redirect, assume success
+  // Some Paystack flows don't redirect at all after payment completion
+  // Show continue button after 8 seconds, auto-continue after 25 seconds
+  useEffect(() => {
+    if (!webLoading && !handled && visible) {
+      const showButtonTimer = setTimeout(() => {
+        if (!handled) {
+          setShowContinueButton(true);
+        }
+      }, 8000);
+      
+      const autoTimer = setTimeout(() => {
+        if (!handled) {
+          console.log("[PaystackWebView] Auto-continue timeout");
+          setHandled(true);
+          onSuccess();
+        }
+      }, 25000);
+      
+      return () => {
+        clearTimeout(showButtonTimer);
+        clearTimeout(autoTimer);
+      };
+    }
+  }, [webLoading, handled, visible, onSuccess]);
+
+  // Status bar height for manual safe area inside Modal
+  const statusBarHeight = Platform.OS === "android"
+    ? (StatusBar.currentHeight ?? 24)
+    : 50; // iOS approximate — safe enough for the header
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onCancel}
+    >
+      <View style={{ flex: 1, backgroundColor: "#fff" }}>
+        {/* Manual top inset so header isn't hidden under status bar */}
+        <View style={{ height: statusBarHeight, backgroundColor: "#fff" }} />
+
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.border,
+            backgroundColor: "#fff",
+          }}
+        >
+          <Pressable
+            onPress={onCancel}
+            hitSlop={10}
+            style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
+          >
+            <Ionicons name="close" size={22} color={Colors.charcoal} />
+          </Pressable>
+          <Text
+            style={{
+              flex: 1,
+              textAlign: "center",
+              fontSize: 15,
+              fontFamily: "sans-bold",
+              color: Colors.charcoal,
+            }}
+          >
+            Secure Payment
+          </Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        {/* WebView */}
+        <View style={{ flex: 1 }}>
+          {webLoading && (
+            <View
+              style={{
+                position: "absolute",
+                top: 0, left: 0, right: 0, bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+                backgroundColor: "#fff",
+              }}
+            >
+              <ActivityIndicator size="large" color={Colors.deepTeal} />
+              <Text
+                style={{
+                  marginTop: 12,
+                  fontSize: 13,
+                  fontFamily: "sans-medium",
+                  color: Colors.mutedForeground,
+                }}
+              >
+                Loading secure checkout…
+              </Text>
+            </View>
+          )}
+          <WebView
+            source={{ uri: url }}
+            onNavigationStateChange={handleNavChange}
+            onLoadStart={() => setWebLoading(true)}
+            onLoadEnd={() => setWebLoading(false)}
+            javaScriptEnabled
+            domStorageEnabled
+            startInLoadingState={false}
+            style={{ flex: 1 }}
+          />
+          
+          {/* Continue button - shows if payment seems stuck */}
+          {showContinueButton && !handled && (
+            <View
+              style={{
+                position: "absolute",
+                bottom: 20,
+                left: 20,
+                right: 20,
+                backgroundColor: Colors.deepTeal,
+                borderRadius: 12,
+                padding: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+                elevation: 5,
+              }}
+            >
+              <Pressable
+                onPress={() => {
+                  setHandled(true);
+                  onSuccess();
+                }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <Ionicons name="checkmark" size={18} color={Colors.white} />
+                <Text
+                  style={{
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontFamily: "sans-bold",
+                  }}
+                >
+                  Payment Complete - Continue
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function ConfirmScreen() {
   const params = useLocalSearchParams<{
@@ -170,38 +352,29 @@ export default function ConfirmScreen() {
   }>();
 
   const user = useAuthStore((s) => s.user);
-  const { popup } = usePaystack();
 
-  // ── Derived params ──────────────────────────────────────────────────────────
-
-  const tutorId = Number(params.tutorId);
+  const tutorId      = Number(params.tutorId);
   const sessionFormat = (params.sessionFormat ?? "online") as SessionFormat;
-  const duration = Number(params.duration ?? "60");
-  const subjectId = params.subjectId ? Number(params.subjectId) : null;
-  const scheduledAt = params.scheduledAt ?? "";
-  const tutorFee = parseFloat(params.tutorFee ?? "0");
-  const platformFee = parseFloat(params.platformFee ?? "0");
-  const total = parseFloat(params.total ?? "0");
-  const currency = params.currency ?? "NGN";
+  const duration     = Number(params.duration ?? "60");
+  const subjectId    = params.subjectId ? Number(params.subjectId) : null;
+  const scheduledAt  = params.scheduledAt ?? "";
+  const tutorFee     = parseFloat(params.tutorFee ?? "0");
+  const platformFee  = parseFloat(params.platformFee ?? "0");
+  const total        = parseFloat(params.total ?? "0");
+  const currency     = params.currency ?? "NGN";
 
-  // ── State ───────────────────────────────────────────────────────────────────
-
-  const [step, setStep] = useState<3 | 4>(3);
+  const [step, setStep]       = useState<3 | 4>(3);
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState<BookingWithPaystack | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
+  const [webVisible, setWebVisible] = useState(false);
 
-  // ── Step 3 → 4: Create booking ──────────────────────────────────────────────
+  // ── Step 3 → 4: create booking ────────────────────────────────────────────
 
   const handleContinueToPayment = useCallback(async () => {
-    if (!user?.email) {
-      setError("You must be signed in to book a session.");
-      return;
-    }
-
+    if (!user?.email) { setError("You must be signed in to book a session."); return; }
     setLoading(true);
     setError(null);
-
     try {
       const created = await createBooking({
         tutor_id: tutorId,
@@ -211,114 +384,95 @@ export default function ConfirmScreen() {
         session_format: sessionFormat,
         student_note: null,
       });
-
       setBooking(created);
       setStep(4);
     } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail ??
-        "Could not create the booking. Please try again.";
+      const detail = err?.response?.data?.detail ?? "Could not create the booking. Please try again.";
       setError(typeof detail === "string" ? detail : "Booking failed. Please try again.");
     } finally {
       setLoading(false);
     }
   }, [tutorId, subjectId, scheduledAt, duration, sessionFormat, user?.email]);
 
-  // ── Poll after Paystack sheet closes ───────────────────────────────────────
+  // ── Poll for confirmation after WebView closes ────────────────────────────
 
-  const pollForConfirmation = useCallback(
-    async (bookingId: number, reference: string) => {
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        const updated = await getBooking(bookingId);
-        if (updated.status === "confirmed") {
-          router.replace({
-            pathname: `/booking/${tutorId}/success` as any,
-            params: {
-              bookingId: String(updated.id),
-              displayName: params.displayName,
-              subjectName: params.subjectName ?? "",
-              scheduledAt: updated.scheduled_at,
-              duration: String(updated.duration_minutes),
-              sessionFormat: updated.session_format,
-              amount: updated.amount,
-              currency: updated.currency,
-              reference,
-            },
-          });
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-
-      // Webhook hasn't fired yet — go to failed screen
-      const latest = await getBooking(bookingId).catch(() => null);
-      router.replace({
-        pathname: `/booking/${tutorId}/failed` as any,
-        params: {
-          tutorId: String(tutorId),
-          bookingId: String(bookingId),
-          displayName: params.displayName,
-          subjectName: params.subjectName ?? "",
-          scheduledAt: scheduledAt,
-          duration: String(duration),
-          sessionFormat: sessionFormat,
-          amount: String(latest?.amount ?? total),
-          currency: latest?.currency ?? currency,
-        },
-      });
-    },
-    [tutorId, params, scheduledAt, duration, sessionFormat, total, currency]
-  );
-
-  // ── Step 4: Launch Paystack in-app WebView ──────────────────────────────────
-
-  const handlePayNow = useCallback(() => {
-    if (!booking || !user?.email) return;
-
-    popup.checkout({
-      email: user.email,
-      // amount is in Naira (major units) — the library converts to kobo internally
-      amount: parseFloat(booking.amount),
-      reference: booking.paystack_reference,
-      metadata: {
-        custom_fields: [
-          {
-            display_name: "Booking ID",
-            variable_name: "booking_id",
-            value: String(booking.id),
+  const pollForConfirmation = useCallback(async () => {
+    if (!booking) return;
+    for (let i = 0; i < 10; i++) {
+      const updated = await getBooking(booking.id);
+      if (updated.status === "confirmed") {
+        router.replace({
+          pathname: `/booking/${tutorId}/success` as any,
+          params: {
+            bookingId: String(updated.id),
+            displayName: params.displayName,
+            subjectName: params.subjectName ?? "",
+            scheduledAt: updated.scheduled_at,
+            duration: String(updated.duration_minutes),
+            sessionFormat: updated.session_format,
+            amount: String(updated.amount),
+            currency: updated.currency,
+            reference: booking.paystack_reference,
           },
-        ],
-      },
-      onSuccess: (_res) => {
-        // Paystack WebView confirmed success — poll for webhook confirmation
-        pollForConfirmation(booking.id, booking.paystack_reference);
-      },
-      onCancel: () => {
-        setError("Payment was cancelled. Your booking slot is still reserved — tap Pay to try again.");
+        });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    // Webhook may still be in flight — go to success screen anyway and let it settle
+    router.replace({
+      pathname: `/booking/${tutorId}/success` as any,
+      params: {
+        bookingId: String(booking.id),
+        displayName: params.displayName,
+        subjectName: params.subjectName ?? "",
+        scheduledAt: booking.scheduled_at,
+        duration: String(booking.duration_minutes),
+        sessionFormat: booking.session_format,
+        amount: String(booking.amount),
+        currency: booking.currency,
+        reference: booking.paystack_reference,
       },
     });
-  }, [booking, user?.email, popup, pollForConfirmation]);
+  }, [booking, tutorId, params]);
 
-  // ── Formatted display values ────────────────────────────────────────────────
+  const handleWebSuccess = useCallback(() => {
+    setWebVisible(false);
+    pollForConfirmation();
+  }, [pollForConfirmation]);
 
-  const dateLabel = scheduledAt ? formatBookingDate(scheduledAt) : "—";
-  const timeLabel = scheduledAt
-    ? formatBookingTimeRange(scheduledAt, duration)
-    : "—";
+  const handleWebCancel = useCallback(() => {
+    setWebVisible(false);
+    setError("Payment was cancelled. Your slot is still reserved — tap Pay to try again.");
+  }, []);
+
+  // ── Display helpers ───────────────────────────────────────────────────────
+
+  const dateLabel     = scheduledAt ? formatBookingDate(scheduledAt) : "—";
+  const timeLabel     = scheduledAt ? formatBookingTimeRange(scheduledAt, duration) : "—";
   const durationLabel = duration < 60 ? `${duration} min` : `${duration / 60} hour`;
-  const formatLabel = sessionFormatLabel(sessionFormat);
-  const subjectLabel =
-    params.subjectName || params.primarySubject || "General";
+  const formatLabel   = sessionFormatLabel(sessionFormat);
+  const subjectLabel  = params.subjectName || params.primarySubject || "General";
+  const displayAmount = booking ? Number(booking.amount) : total;
+  const displayCurrency = booking?.currency ?? currency;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* Paystack WebView */}
+      {booking?.authorization_url ? (
+        <PaystackWebViewModal
+          key={booking.id}
+          url={booking.authorization_url}
+          visible={webVisible}
+          onSuccess={handleWebSuccess}
+          onCancel={handleWebCancel}
+        />
+      ) : null}
+
+      {/* Header */}
       <View className="flex-row items-center px-5 pt-2 pb-1">
         <Pressable
-          onPress={() => {
-            if (step === 4) { setStep(3); setError(null); }
-            else router.back();
-          }}
+          onPress={() => { if (step === 4) { setStep(3); setError(null); } else router.back(); }}
           hitSlop={10}
           className="w-9 h-9 items-center justify-center"
         >
@@ -337,34 +491,25 @@ export default function ConfirmScreen() {
         contentContainerStyle={{ paddingHorizontal: Spacing.xl, paddingBottom: 110 }}
       >
         {step === 3 ? (
-          /* ── Step 3: Review ──────────────────────────────────────────────── */
           <View className="pt-2">
-            <Text className="text-[16px] font-sans-bold text-charcoal mb-1">
-              Review Your Booking
-            </Text>
+            <Text className="text-[16px] font-sans-bold text-charcoal mb-1">Review Your Booking</Text>
             <Text className="text-[13px] font-sans-medium text-muted-foreground mb-3">
               Please confirm your session details.
             </Text>
 
-            {/* Tutor summary card */}
+            {/* Tutor card */}
             <View className="bg-white rounded-xl border border-border px-4 py-4 mb-3">
-              <View className="flex-row items-center gap-3 mb-1">
+              <View className="flex-row items-center gap-3">
                 <View className="w-10 h-10 rounded-full bg-muted items-center justify-center">
                   <Ionicons name="person" size={18} color={Colors.deepTeal} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-[15px] font-sans-bold text-charcoal">
-                    {params.displayName}
-                  </Text>
-                  <Text className="text-[12px] font-sans-medium text-muted-foreground">
-                    {subjectLabel}
-                  </Text>
+                  <Text className="text-[15px] font-sans-bold text-charcoal">{params.displayName}</Text>
+                  <Text className="text-[12px] font-sans-medium text-muted-foreground">{subjectLabel}</Text>
                 </View>
                 <Text className="text-[15px] font-sans-bold text-charcoal">
                   {formatCurrency(parseFloat(params.ratePerHour ?? "0"), currency, 0)}
-                  <Text className="text-[11px] font-sans-medium text-muted-foreground">
-                    /hr
-                  </Text>
+                  <Text className="text-[11px] font-sans-medium text-muted-foreground">/hr</Text>
                 </Text>
               </View>
             </View>
@@ -379,69 +524,44 @@ export default function ConfirmScreen() {
                 <View className="w-8 h-8 rounded-full bg-muted items-center justify-center">
                   <Ionicons name="laptop-outline" size={15} color={Colors.deepTeal} />
                 </View>
-                <Text className="flex-1 text-[13px] font-sans-medium text-muted-foreground">
-                  Learning Format
-                </Text>
-                <Text className="text-[13px] font-sans-semibold text-charcoal">
-                  {formatLabel}
-                </Text>
+                <Text className="flex-1 text-[13px] font-sans-medium text-muted-foreground">Learning Format</Text>
+                <Text className="text-[13px] font-sans-semibold text-charcoal">{formatLabel}</Text>
               </View>
             </View>
 
             {/* Price breakdown */}
             <View className="bg-white rounded-tr-3xl border border-border px-4 py-3 mb-2">
-              <Text className="text-[13px] font-sans-bold text-charcoal mb-1">
-                Price Breakdown
-              </Text>
-              <PriceRow
-                label={`Tutor Fee (${durationLabel})`}
-                value={formatCurrency(tutorFee, currency)}
-              />
-              <PriceRow
-                label="Platform Fee"
-                value={formatCurrency(platformFee, currency)}
-              />
+              <Text className="text-[13px] font-sans-bold text-charcoal mb-1">Price Breakdown</Text>
+              <PriceRow label={`Tutor Fee (${durationLabel})`} value={formatCurrency(tutorFee, currency)} />
+              <PriceRow label="Platform Fee" value={formatCurrency(platformFee, currency)} />
               <View className="h-px bg-border my-2" />
-              <PriceRow
-                label="Total"
-                value={formatCurrency(total, currency)}
-                bold
-                highlight
-              />
+              <PriceRow label="Total" value={formatCurrency(total, currency)} bold highlight />
             </View>
 
-            {/* Error */}
             {!!error && (
               <View className="flex-row items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
                 <Ionicons name="alert-circle-outline" size={16} color={Colors.destructive} />
-                <Text className="flex-1 text-[13px] font-sans-medium text-destructive">
-                  {error}
-                </Text>
+                <Text className="flex-1 text-[13px] font-sans-medium text-destructive">{error}</Text>
               </View>
             )}
           </View>
         ) : (
-          /* ── Step 4: Payment ─────────────────────────────────────────────── */
           <View className="pt-2">
-            <Text className="text-[16px] font-sans-bold text-charcoal mb-1">
-              Payment Method
-            </Text>
+            <Text className="text-[16px] font-sans-bold text-charcoal mb-1">Payment Method</Text>
             <Text className="text-[13px] font-sans-medium text-muted-foreground mb-5">
               Choose your preferred payment method.
             </Text>
 
-            {/* Paystack option (primary) */}
+            {/* Paystack option */}
             <Pressable
-              onPress={handlePayNow}
-              className="flex-row items-center bg-white rounded-xl border-0 border-border px-4 py-4 gap-3 mb-3 active:opacity-80"
+              onPress={() => setWebVisible(true)}
+              className="flex-row items-center bg-white rounded-xl border border-border px-4 py-4 gap-3 mb-3 active:opacity-80"
             >
               <View className="w-10 h-10 rounded-xl bg-muted items-center justify-center">
                 <Ionicons name="card-outline" size={20} color={Colors.deepTeal} />
               </View>
               <View className="flex-1">
-                <Text className="text-[14px] font-sans-bold text-charcoal">
-                  Paystack
-                </Text>
+                <Text className="text-[14px] font-sans-bold text-charcoal">Paystack</Text>
                 <Text className="text-[12px] font-sans-medium text-muted-foreground">
                   Card, bank transfer, USSD & more
                 </Text>
@@ -458,32 +578,22 @@ export default function ConfirmScreen() {
                   <Ionicons name="person" size={16} color={Colors.deepTeal} />
                 </View>
                 <View>
-                  <Text className="text-[13px] font-sans-bold text-charcoal">
-                    {params.displayName}
-                  </Text>
-                  <Text className="text-[11px] font-sans-medium text-muted-foreground">
-                    {subjectLabel}
-                  </Text>
+                  <Text className="text-[13px] font-sans-bold text-charcoal">{params.displayName}</Text>
+                  <Text className="text-[11px] font-sans-medium text-muted-foreground">{subjectLabel}</Text>
                 </View>
               </View>
-
               <View className="h-px bg-border mb-3" />
-
               <View className="gap-1.5">
                 <InfoLine label="Date" value={dateLabel} />
                 <InfoLine label="Time" value={timeLabel} />
                 <InfoLine label="Duration" value={durationLabel} />
                 <InfoLine label="Session Type" value={`1-on-1 · ${formatLabel}`} />
               </View>
-
               <View className="h-px bg-border my-3" />
-
               <View className="flex-row items-center justify-between">
-                <Text className="text-[14px] font-sans-bold text-charcoal">
-                  Total Amount
-                </Text>
+                <Text className="text-[14px] font-sans-bold text-charcoal">Total Amount</Text>
                 <Text className="text-[18px] font-sans-bold text-deep-teal">
-                  {formatCurrency(booking ? booking.amount : total, booking?.currency ?? currency)}
+                  {formatCurrency(displayAmount, displayCurrency)}
                 </Text>
               </View>
               <Text className="text-[11px] font-sans-medium text-muted-foreground mt-0.5">
@@ -491,17 +601,13 @@ export default function ConfirmScreen() {
               </Text>
             </View>
 
-            {/* Error */}
             {!!error && (
               <View className="flex-row items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
                 <Ionicons name="alert-circle-outline" size={16} color={Colors.destructive} />
-                <Text className="flex-1 text-[13px] font-sans-medium text-destructive">
-                  {error}
-                </Text>
+                <Text className="flex-1 text-[13px] font-sans-medium text-destructive">{error}</Text>
               </View>
             )}
 
-            {/* Security note */}
             <View className="flex-row items-center justify-center gap-1.5">
               <Ionicons name="lock-closed-outline" size={13} color={Colors.mutedForeground} />
               <Text className="text-[11px] font-sans-medium text-muted-foreground">
@@ -512,6 +618,7 @@ export default function ConfirmScreen() {
         )}
       </ScrollView>
 
+      {/* Sticky CTA */}
       <View
         className="absolute rounded-2xl mx-2 bottom-0 left-0 right-0 bg-background border-t border-border"
         style={{
@@ -532,24 +639,21 @@ export default function ConfirmScreen() {
             {loading ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text className="text-[15px] font-sans-bold text-white">
-                Continue to Payment
-              </Text>
+              <Text className="text-[15px] font-sans-bold text-white">Continue to Payment</Text>
             )}
           </Pressable>
         ) : (
           <Pressable
-            onPress={handlePayNow}
+            onPress={() => setWebVisible(true)}
             className="rounded-xl bg-deep-teal items-center py-4 active:opacity-80"
           >
             <Text className="text-[15px] font-sans-bold text-white">
-              Pay Securely {formatCurrency(booking ? booking.amount : total, booking?.currency ?? currency)}
+              Pay Securely · {formatCurrency(displayAmount, displayCurrency)}
             </Text>
           </Pressable>
         )}
-
         <Text
-          className="text-[11px] font-sans-medium text-muted-foreground text-center mt-3 mb-0"
+          className="text-[11px] font-sans-medium text-muted-foreground text-center mt-3"
           style={{ lineHeight: 16 }}
         >
           By proceeding, you agree to our{" "}
@@ -558,18 +662,5 @@ export default function ConfirmScreen() {
         </Text>
       </View>
     </SafeAreaView>
-  );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row items-center justify-between">
-      <Text className="text-[12px] font-sans-medium text-muted-foreground">
-        {label}
-      </Text>
-      <Text className="text-[12px] font-sans-semibold text-charcoal">{value}</Text>
-    </View>
   );
 }

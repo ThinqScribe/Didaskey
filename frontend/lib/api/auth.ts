@@ -26,6 +26,7 @@ export interface User {
   education_level: EducationLevel | null;
   first_name: string;
   last_name: string;
+  profile_image_url: string | null;
   is_active: boolean;
   is_verified: boolean;
 }
@@ -124,4 +125,14 @@ export function extractErrorMessage(error: unknown, fallback = "Something went w
     return (error as any).response.data.detail;
   }
   return fallback;
+}
+
+/** POST /users/me/avatar — upload a profile photo, returns updated User */
+export async function uploadAvatar(imageUri: string, mimeType = "image/jpeg"): Promise<User> {
+  const form = new FormData();
+  form.append("file", { uri: imageUri, name: "avatar.jpg", type: mimeType } as any);
+  const { data } = await apiClient.post<User>("/users/me/avatar", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
 }

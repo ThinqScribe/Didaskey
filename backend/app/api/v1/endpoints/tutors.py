@@ -1,13 +1,13 @@
 """
 Student-facing tutor marketplace endpoints.
 
-All routes here are publicly readable (tutor discovery / profile) or
-require an authenticated student / parent account (reviews).
-
 Route map
 ---------
 GET    /tutors                          — paginated tutor search with filters
 GET    /tutors/subjects                 — list active subjects (for filter UI)
+GET    /tutors/me                       — own tutor profile (tutor auth required)
+PATCH  /tutors/me                       — update own profile (tutor auth required)
+PUT    /tutors/me/availability          — replace own availability (tutor auth required)
 GET    /tutors/{tutor_id}               — full tutor profile detail
 GET    /tutors/{tutor_id}/reviews       — paginated visible reviews for a tutor
 POST   /tutors/{tutor_id}/reviews       — submit a new review (auth required)
@@ -17,21 +17,24 @@ DELETE /tutors/{tutor_id}/reviews/{id}  — delete own review (auth required)
 
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
 from app.db.session import get_db_session
-from app.models.marketplace import TeachingMode
-from app.models.user import User
+from app.models.marketplace import TeachingMode, TutorProfile
+from app.models.user import User, UserRole
 from app.schemas.marketplace import (
     PaginatedReviews,
     PaginatedTutors,
     ReviewCreateRequest,
     ReviewResponse,
     ReviewUpdateRequest,
+    SetAvailabilityRequest,
     SubjectResponse,
     TutorDetail,
+    TutorProfileUpdateRequest,
 )
 from app.services import tutor_service
 
@@ -41,67 +44,70 @@ router = APIRouter()
 # ── Subject catalogue ─────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/subjects",
-    response_model=list[SubjectResponse],
-    summary="List active subjects",
-    description=(
-        "Returns all active subjects in the catalogue. "
-        "Used to populate subject filter dropdowns in the student UI."
-    ),
-)
-async def list_subjects(
-    db: AsyncSession = Depends(get_db_session),
-) -> list[SubjectResponse]:
+@router.get("/subjects", response_model=list[SubjectResponse], summary="List active subjects")
+async def list_subjects(db: AsyncSession = Depends(get_db_session)) -> list[SubjectResponse]:
     return await tutor_service.list_subjects(db, active_only=True)
+
+
+# ── Tutor self-service ────────────────────────────────────────────────────────
+
+
+async def _require_tutor_profile(current_user: User, db: AsyncSession) -> TutorProfile:
+    """Return the calling tutor's profile, or raise 403/404."""
+    if current_user.role != UserRole.TUTOR:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tutor access only.")
+    profile = await db.scalar(select(TutorProfile).where(TutorProfile.user_id == current_user.id))
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tutor profile not found.")
+    return profile
+
+
+@router.get("/me", response_model=TutorDetail, summary="Get own tutor profile")
+async def get_my_tutor_profile(
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> TutorDetail:
+    profile = await _require_tutor_profile(current_user, db)
+    return await tutor_service.get_tutor_detail(profile.id, db)
+
+
+@router.patch("/me", response_model=TutorDetail, summary="Update own tutor profile")
+async def update_my_tutor_profile(
+    payload: TutorProfileUpdateRequest,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> TutorDetail:
+    profile = await _require_tutor_profile(current_user, db)
+    result = await tutor_service.update_tutor_profile(profile.id, payload, db)
+    await db.commit()
+    return result
+
+
+@router.put("/me/availability", response_model=TutorDetail, summary="Replace own availability slots")
+async def set_my_availability(
+    payload: SetAvailabilityRequest,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> TutorDetail:
+    profile = await _require_tutor_profile(current_user, db)
+    result = await tutor_service.set_tutor_availability(profile.id, payload, db)
+    await db.commit()
+    return result
 
 
 # ── Tutor discovery ───────────────────────────────────────────────────────────
 
 
-@router.get(
-    "",
-    response_model=PaginatedTutors,
-    summary="Search and filter tutors",
-    description=(
-        "Returns a paginated list of verified, active tutors. "
-        "All filter parameters are optional and combinable. "
-        "Results are sorted by rating (desc), then total hours taught (desc)."
-    ),
-)
+@router.get("", response_model=PaginatedTutors, summary="Search and filter tutors")
 async def search_tutors(
-    subject_id: int | None = Query(
-        default=None,
-        gt=0,
-        description="Filter to tutors who teach this subject ID",
-    ),
-    teaching_mode: TeachingMode | None = Query(
-        default=None,
-        description="Filter by session format: online, in_person, or both",
-    ),
-    min_rating: Decimal | None = Query(
-        default=None,
-        ge=Decimal("0"),
-        le=Decimal("5"),
-        description="Minimum average star rating (inclusive)",
-    ),
-    max_rate: Decimal | None = Query(
-        default=None,
-        ge=Decimal("0"),
-        description="Maximum hourly rate (inclusive)",
-    ),
-    city: str | None = Query(
-        default=None,
-        max_length=100,
-        description="Case-insensitive partial match on tutor city",
-    ),
-    search: str | None = Query(
-        default=None,
-        max_length=100,
-        description="Partial text match on tutor display name or bio",
-    ),
-    page: int = Query(default=1, ge=1, description="1-based page number"),
-    page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    subject_id: int | None = Query(default=None, gt=0),
+    teaching_mode: TeachingMode | None = Query(default=None),
+    min_rating: Decimal | None = Query(default=None, ge=Decimal("0"), le=Decimal("5")),
+    max_rate: Decimal | None = Query(default=None, ge=Decimal("0")),
+    city: str | None = Query(default=None, max_length=100),
+    search: str | None = Query(default=None, max_length=100),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db_session),
 ) -> PaginatedTutors:
     return await tutor_service.search_tutors(
@@ -120,15 +126,7 @@ async def search_tutors(
 # ── Tutor profile detail ──────────────────────────────────────────────────────
 
 
-@router.get(
-    "/{tutor_id}",
-    response_model=TutorDetail,
-    summary="Get full tutor profile",
-    description=(
-        "Returns the complete tutor profile including bio, qualifications, "
-        "subjects with rate overrides, and weekly availability slots."
-    ),
-)
+@router.get("/{tutor_id}", response_model=TutorDetail, summary="Get full tutor profile")
 async def get_tutor(
     tutor_id: int,
     db: AsyncSession = Depends(get_db_session),
@@ -139,15 +137,7 @@ async def get_tutor(
 # ── Reviews ───────────────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/{tutor_id}/reviews",
-    response_model=PaginatedReviews,
-    summary="List tutor reviews",
-    description=(
-        "Returns a paginated list of visible reviews for a tutor, "
-        "sorted by most recent first."
-    ),
-)
+@router.get("/{tutor_id}/reviews", response_model=PaginatedReviews, summary="List tutor reviews")
 async def list_reviews(
     tutor_id: int,
     page: int = Query(default=1, ge=1),
@@ -159,33 +149,18 @@ async def list_reviews(
     )
 
 
-@router.post(
-    "/{tutor_id}/reviews",
-    response_model=ReviewResponse,
-    status_code=201,
-    summary="Submit a review",
-    description=(
-        "Authenticated students and parents can submit one review per tutor. "
-        "Attempting a second review for the same tutor returns 409."
-    ),
-)
+@router.post("/{tutor_id}/reviews", response_model=ReviewResponse, status_code=201, summary="Submit a review")
 async def create_review(
     tutor_id: int,
     payload: ReviewCreateRequest,
     db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> ReviewResponse:
-    # Ensure the tutor_id in the URL matches the payload to prevent mismatch
     payload.tutor_id = tutor_id
     return await tutor_service.create_review(payload, current_user, db)
 
 
-@router.patch(
-    "/{tutor_id}/reviews/{review_id}",
-    response_model=ReviewResponse,
-    summary="Edit own review",
-    description="Authenticated students can update the rating or comment on their own review.",
-)
+@router.patch("/{tutor_id}/reviews/{review_id}", response_model=ReviewResponse, summary="Edit own review")
 async def update_review(
     tutor_id: int,
     review_id: int,
@@ -196,12 +171,7 @@ async def update_review(
     return await tutor_service.update_review(review_id, payload, current_user, db)
 
 
-@router.delete(
-    "/{tutor_id}/reviews/{review_id}",
-    status_code=204,
-    summary="Delete own review",
-    description="Authenticated students can permanently delete their own review.",
-)
+@router.delete("/{tutor_id}/reviews/{review_id}", status_code=204, summary="Delete own review")
 async def delete_review(
     tutor_id: int,
     review_id: int,

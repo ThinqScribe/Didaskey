@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
-import { usePaystack } from "react-native-paystack-webview";
+
 
 import { Colors, Spacing, TabBar } from "@/constants";
 import { useRefresh } from "@/lib/hooks/useRefresh";
@@ -305,7 +306,6 @@ function BookingCard({
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
-  const { popup } = usePaystack();
   const user = useAuthStore((s) => s.user);
 
   const [activeTab, setActiveTab] = useState<
@@ -384,70 +384,39 @@ export default function BookingsScreen() {
       try {
         const payment = await initiatePayment(bookingId);
 
-        // Launch the in-app Paystack WebView — no system browser involved
-        popup.checkout({
-          email: user?.email ?? "",
-          // amount is in Naira (major units); library converts to kobo
-          amount: parseFloat(payment.amount),
-          reference: payment.reference,
-          onSuccess: async (_res) => {
-            // Poll for webhook confirmation (up to 10 s)
-            for (let attempt = 0; attempt < 10; attempt += 1) {
-              const updated = await getBooking(bookingId);
-              if (updated.status === "confirmed") {
-                setPaying(null);
-                router.replace({
-                  pathname: `/booking/${updated.tutor_id}/success` as any,
-                  params: {
-                    bookingId: String(updated.id),
-                    displayName: updated.tutor_name,
-                    subjectName: updated.subject_name ?? "Session",
-                    scheduledAt: updated.scheduled_at,
-                    duration: String(updated.duration_minutes),
-                    sessionFormat: updated.session_format,
-                    amount: updated.amount,
-                    currency: updated.currency,
-                    reference: payment.reference,
-                  },
-                });
-                return;
-              }
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
+        // Open Paystack payment URL in system browser
+        if (payment.authorization_url) {
+          await WebBrowser.openBrowserAsync(payment.authorization_url);
+        }
 
-            // Webhook not yet received — navigate to failed screen
-            const latest = await getBooking(bookingId).catch(() => null);
-            setPaying(null);
-            await fetchBookings();
-            router.push({
-              pathname: `/booking/${latest?.tutor_id ?? bookingId}/failed` as any,
-              params: {
-                tutorId: String(latest?.tutor_id ?? bookingId),
-                bookingId: String(bookingId),
-                displayName: latest?.tutor_name ?? "",
-                subjectName: latest?.subject_name ?? "",
-                scheduledAt: latest?.scheduled_at ?? "",
-                duration: String(latest?.duration_minutes ?? 60),
-                sessionFormat: latest?.session_format ?? "online",
-                amount: latest?.amount ?? "0",
-                currency: latest?.currency ?? "NGN",
-              },
-            });
-          },
-          onCancel: () => {
+        // After user returns from browser, poll for webhook confirmation
+        for (let attempt = 0; attempt < 15; attempt += 1) {
+          const updated = await getBooking(bookingId);
+          if (updated.status === "confirmed") {
             setPaying(null);
             Alert.alert(
-              "Payment cancelled",
-              "Your booking slot is still reserved. Tap 'Awaiting payment' to try again."
+              "Payment successful! 🎉",
+              "Your session has been confirmed.",
+              [{ text: "OK", onPress: () => fetchBookings() }]
             );
-          },
-        });
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+
+        // Payment processing — inform user
+        setPaying(null);
+        await fetchBookings();
+        Alert.alert(
+          "Payment processing",
+          "We're confirming your payment. Your booking will appear as confirmed shortly."
+        );
       } catch {
         setPaying(null);
         Alert.alert("Could not initiate payment", "Please try again in a moment.");
       }
     },
-    [popup, user?.email, fetchBookings]
+    [user?.email, fetchBookings]
   );
 
   // ───────────────────────────────────────────────────────────────────────────

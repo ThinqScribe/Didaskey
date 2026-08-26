@@ -55,11 +55,33 @@ function buildMonthGrid(year: number, month: number): (Date | null)[] {
   return grid;
 }
 
+/**
+ * Build a timezone-aware ISO 8601 string like "2024-05-20T14:00:00+01:00".
+ *
+ * We deliberately preserve the device's local UTC offset instead of
+ * converting to UTC with toISOString(), because the backend's availability
+ * check compares the day-of-week and wall-clock time against the tutor's
+ * schedule.  Sending a UTC string for a slot that was picked in WAT (UTC+1)
+ * would shift the datetime by one hour and potentially change the day,
+ * causing a false "tutor not available" 409.
+ */
 function buildScheduledAtFromSelection(date: Date, timeStr: string): string {
   const [h, m] = timeStr.split(":").map(Number);
   const d = new Date(date);
   d.setHours(h, m, 0, 0);
-  return d.toISOString();
+
+  // Offset in minutes — negative means ahead of UTC (e.g. WAT = -60)
+  const offsetMins = -d.getTimezoneOffset();
+  const sign = offsetMins >= 0 ? "+" : "-";
+  const absOffset = Math.abs(offsetMins);
+  const oh = String(Math.floor(absOffset / 60)).padStart(2, "0");
+  const om = String(absOffset % 60).padStart(2, "0");
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:00${sign}${oh}:${om}`
+  );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────

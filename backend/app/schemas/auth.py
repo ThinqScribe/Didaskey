@@ -32,6 +32,7 @@ class UserResponse(BaseModel):
     education_level: EducationLevel | None
     first_name: str
     last_name: str
+    profile_image_url: str | None = None
     is_active: bool
     is_verified: bool
 
