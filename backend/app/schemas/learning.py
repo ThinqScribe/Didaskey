@@ -1,0 +1,1 @@
+"""Pydantic contracts for learning content and progress."""

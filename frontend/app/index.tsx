@@ -1,0 +1,44 @@
+/**
+ * Entry point — waits for the auth bootstrap to complete before
+ * redirecting. This prevents the "flash to sign-in" on reload.
+ *
+ * Navigation is deferred to the next tick so the Root Layout's <Stack>
+ * has a chance to mount before router.replace is called.
+ */
+import { useEffect, useRef } from "react";
+import { router } from "expo-router";
+import { View, ActivityIndicator } from "react-native";
+
+import { useAuthStore } from "@/lib/store/auth";
+
+export default function Index() {
+  const { status, bootstrap } = useAuthStore();
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    bootstrap();
+  }, []);
+
+  useEffect(() => {
+    if (status === "loading") return;
+
+    // Defer by one tick so RootLayout's Stack has mounted
+    const t = setTimeout(() => {
+      if (!mounted.current) return;
+      if (status === "authenticated") {
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/(auth)/sign-in");
+      }
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [status]);
+
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F5F0E8" }}>
+      <ActivityIndicator size="large" color="#17A389" />
+    </View>
+  );
+}
