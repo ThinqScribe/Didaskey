@@ -28,7 +28,7 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F0E8" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1d3a4" }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}

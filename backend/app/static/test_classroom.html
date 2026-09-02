@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>LiveKit Test</title>
+</head>
+<body>
+<h1>LiveKit SDK Test</h1>
+<div id="status">Loading...</div>
+<div id="config"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.4/dist/livekit-client.umd.min.js"></script>
+
+<script>
+console.log('Script started');
+
+// Test config injection
+window.__CLS = {
+  livekitUrl: 'wss://didaskey-b320v6cw.livekit.cloud',
+  token: 'test-token',
+  displayName: 'Test User',
+  isTutor: false
+};
+
+function updateStatus(msg) {
+  console.log('Status:', msg);
+  document.getElementById('status').textContent = msg;
+}
+
+function updateConfig(msg) {
+  document.getElementById('config').textContent = msg;
+}
+
+// Check if LiveKit SDK loaded
+setTimeout(() => {
+  if (window.LivekitClient) {
+    updateStatus('✓ LiveKit SDK loaded successfully');
+    console.log('LiveKit version:', window.LivekitClient.version);
+  } else {
+    updateStatus('✗ LiveKit SDK failed to load');
+  }
+  
+  // Check config injection
+  if (window.__CLS) {
+    updateConfig('Config: ' + JSON.stringify(window.__CLS));
+  } else {
+    updateConfig('No config found');
+  }
+}, 2000);
+
+</script>
+</body>
+</html>

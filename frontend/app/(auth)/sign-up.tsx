@@ -170,7 +170,7 @@ export default function SignUp() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F0E8" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1d3a4" }}>
       {/* Top bar */}
       <View style={{
         flexDirection: "row",

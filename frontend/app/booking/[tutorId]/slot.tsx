@@ -43,6 +43,23 @@ function generateSlots(start: string, end: string): string[] {
   return slots;
 }
 
+/**
+ * Return the device's local timezone abbreviation for display, e.g. "WAT", "GMT", "EST".
+ * Falls back to the numeric offset ("UTC+1") if the Intl API can't resolve a short name.
+ */
+function localTimezoneLabel(): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date());
+    const tz = parts.find((p) => p.type === "timeZoneName");
+    return tz?.value ?? "local";
+  } catch {
+    const offsetMins = -new Date().getTimezoneOffset();
+    const sign = offsetMins >= 0 ? "+" : "-";
+    const abs = Math.abs(offsetMins);
+    return `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, "0")}` : ""}`;
+  }
+}
+
 /** Returns all days in a given month as a grid (with leading/trailing nulls to align to Sun). */
 function buildMonthGrid(year: number, month: number): (Date | null)[] {
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
@@ -190,12 +207,45 @@ export default function SlotScreen() {
     [availabilitySlots]
   );
 
+  /**
+   * Return all non-past time slots for a given date.
+   * For any day other than today this is just all slots for that weekday.
+   * For today we additionally strip slots whose wall-clock time has already passed.
+   */
+  const getSlotsForDate = useCallback(
+    (date: Date): string[] => {
+      const dayName = DAY_NAMES[date.getDay()];
+      const windows = availabilitySlots.filter((s) => s.day_of_week === dayName);
+      const all: string[] = [];
+      for (const w of windows) all.push(...generateSlots(w.start_time, w.end_time));
+      const unique = [...new Set(all)].sort();
+
+      // For today, drop slots that have already passed (add 5-min buffer so
+      // the user isn't shown a slot they'd immediately miss).
+      const isToday = date.toDateString() === today.toDateString();
+      if (!isToday) return unique;
+
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes() + 5; // +5 min buffer
+      return unique.filter((t) => {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m > nowMins;
+      });
+    },
+    [availabilitySlots, today]
+  );
+
   const isDayAvailable = useCallback(
     (date: Date) => {
       if (date < today) return false;
-      return availableDayNames.has(DAY_NAMES[date.getDay()]);
+      if (!availableDayNames.has(DAY_NAMES[date.getDay()])) return false;
+      // Today is only selectable if at least one future slot remains.
+      if (date.toDateString() === today.toDateString()) {
+        return getSlotsForDate(date).length > 0;
+      }
+      return true;
     },
-    [availableDayNames, today]
+    [availableDayNames, today, getSlotsForDate]
   );
 
   const monthGrid = useMemo(() => buildMonthGrid(calYear, calMonth), [calYear, calMonth]);
@@ -218,12 +268,8 @@ export default function SlotScreen() {
 
   const availableTimeSlots = useMemo(() => {
     if (!selectedDate) return [];
-    const dayName = DAY_NAMES[selectedDate.getDay()];
-    const windows = availabilitySlots.filter((s) => s.day_of_week === dayName);
-    const all: string[] = [];
-    for (const w of windows) all.push(...generateSlots(w.start_time, w.end_time));
-    return [...new Set(all)].sort();
-  }, [selectedDate, availabilitySlots]);
+    return getSlotsForDate(selectedDate);
+  }, [selectedDate, getSlotsForDate]);
 
   // ── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -268,9 +314,9 @@ export default function SlotScreen() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FAFAF9" }}>
+    <View style={{ flex: 1, backgroundColor: "#f4d9b0" }}>
       {/* Top safe area + header */}
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#FAFAF9" }}>
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#f4d9b0" }}>
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
           <Pressable
             onPress={() => (step === 2 ? setStep(1) : router.back())}
@@ -624,7 +670,7 @@ function Step2({
             Available Times
           </Text>
           <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.mutedForeground }}>
-            (GMT+1)
+            ({localTimezoneLabel()})
           </Text>
         </View>
 

@@ -48,7 +48,7 @@ export default function VerifyEmail() {
   const timerLabel = `${pad(Math.floor(countdown / 60))}:${pad(countdown % 60)}`;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F0E8" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1d3a4" }}>
 
       <Pressable
         onPress={() => router.back()}

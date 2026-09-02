@@ -12,13 +12,14 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
 
+import PaystackWebViewModal from "@/components/payment/PaystackWebViewModal";
+import { JoinSessionButton } from "@/components/classroom/JoinSessionButton";
 
 import { Colors, Spacing, TabBar } from "@/constants";
 import { useRefresh } from "@/lib/hooks/useRefresh";
-import { useAuthStore } from "@/lib/store/auth";
+
 import {
   listBookings,
   cancelBooking,
@@ -253,7 +254,7 @@ function BookingCard({
           </Text>
         </View>
 
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-2">
           {booking.status === "pending_payment" && (
             <Pressable
               onPress={() => onPay(booking.id)}
@@ -269,6 +270,8 @@ function BookingCard({
               )}
             </Pressable>
           )}
+
+          <JoinSessionButton booking={booking} counterpartName={booking.tutor_name} />
 
           {canCancel && (
             <Pressable
@@ -306,7 +309,6 @@ function BookingCard({
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
-  const user = useAuthStore((s) => s.user);
 
   const [activeTab, setActiveTab] = useState<
     BookingStatus | undefined
@@ -320,6 +322,10 @@ export default function BookingsScreen() {
   const [paying, setPaying] = useState<number | null>(null);
 
   const [headerHeight, setHeaderHeight] = useState(0);
+
+  // WebView payment modal state
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [webViewVisible, setWebViewVisible] = useState(false);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Fetch bookings
@@ -384,40 +390,104 @@ export default function BookingsScreen() {
       try {
         const payment = await initiatePayment(bookingId);
 
-        // Open Paystack payment URL in system browser
-        if (payment.authorization_url) {
-          await WebBrowser.openBrowserAsync(payment.authorization_url);
+        if (!payment.authorization_url) {
+          throw new Error("No payment URL returned");
         }
 
-        // After user returns from browser, poll for webhook confirmation
-        for (let attempt = 0; attempt < 15; attempt += 1) {
-          const updated = await getBooking(bookingId);
-          if (updated.status === "confirmed") {
-            setPaying(null);
-            Alert.alert(
-              "Payment successful! 🎉",
-              "Your session has been confirmed.",
-              [{ text: "OK", onPress: () => fetchBookings() }]
-            );
-            return;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-
-        // Payment processing — inform user
+        // Open in-app WebView modal only if we have a valid URL
+        setPaymentUrl(payment.authorization_url);
+        setWebViewVisible(true);
+      } catch (error: any) {
+        console.error("Payment initiation failed:", error);
         setPaying(null);
-        await fetchBookings();
-        Alert.alert(
-          "Payment processing",
-          "We're confirming your payment. Your booking will appear as confirmed shortly."
-        );
-      } catch {
-        setPaying(null);
-        Alert.alert("Could not initiate payment", "Please try again in a moment.");
+        // Clear any stale payment URL
+        setPaymentUrl(null);
+        setWebViewVisible(false);
+        
+        const message = error?.response?.status === 500 
+          ? "Payment service is temporarily unavailable. Please try again later."
+          : "Could not initiate payment. Please try again in a moment.";
+          
+        Alert.alert("Payment Error", message);
       }
     },
-    [user?.email, fetchBookings]
+    [bookings]
   );
+
+  const handlePaymentSuccess = useCallback(async () => {
+    setWebViewVisible(false);
+
+    // Capture bookingId synchronously before any state changes.
+    const bookingId = paying;
+    if (!bookingId) return;
+
+    // Find the booking snapshot for fallback params.
+    const bookingSnapshot = bookings.find((b) => b.id === bookingId) ?? null;
+
+    // Helper that navigates to the success screen.
+    // Uses router.push (not replace) so it sits on top of the tabs stack.
+    const goToSuccess = (b: BookingResponse) => {
+      setPaying(null);
+      router.push({
+        pathname: `/booking/${b.tutor_id}/success` as any,
+        params: {
+          bookingId: String(b.id),
+          displayName: b.tutor_name,
+          subjectName: b.subject_name ?? "",
+          scheduledAt: String(b.scheduled_at),
+          duration: String(b.duration_minutes),
+          sessionFormat: b.session_format,
+          amount: String(b.amount),
+          currency: b.currency,
+          reference: b.transaction?.paystack_reference ?? "",
+        },
+      });
+    };
+
+    // Poll for webhook confirmation — the webhook may arrive within a few seconds.
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      try {
+        const updated = await getBooking(bookingId);
+        if (updated.status === "confirmed") {
+          goToSuccess(updated);
+          return;
+        }
+      } catch {
+        // network blip — keep polling
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    // Webhook hasn't arrived yet (or is in-flight) — navigate optimistically.
+    // The success screen shows the details from params; the booking will
+    // confirm asynchronously via the webhook.
+    const latest = await getBooking(bookingId).catch(() => bookingSnapshot);
+    if (latest) {
+      goToSuccess(latest);
+    } else {
+      setPaying(null);
+      Alert.alert(
+        "Payment processing",
+        "We're confirming your payment. Please check your bookings shortly."
+      );
+    }
+  }, [paying, bookings]);
+
+  const handlePaymentCancel = useCallback(() => {
+    setWebViewVisible(false);
+    setPaying(null);
+    Alert.alert(
+      "Payment cancelled",
+      "Your booking slot is still reserved — tap 'Awaiting payment' to try again."
+    );
+  }, []);
+
+  // User dismissed the modal (× button or back) without Paystack signalling cancel.
+  // Keep paying state intact so the button stays active for a retry.
+  const handlePaymentDismiss = useCallback(() => {
+    setWebViewVisible(false);
+    setPaying(null);
+  }, []);
 
   // ───────────────────────────────────────────────────────────────────────────
   // IMPORTANT:
@@ -457,7 +527,8 @@ export default function BookingsScreen() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-background"
+      className="flex-1"
+      style={{ backgroundColor: Colors.background }}
       edges={["top"]}
     >
       {/* ─────────────────────────────────────────────────────────────── */}
@@ -621,6 +692,17 @@ export default function BookingsScreen() {
               paying={paying === item.id}
             />
           )}
+        />
+      )}
+
+      {/* Paystack WebView Modal */}
+      {paymentUrl && webViewVisible && (
+        <PaystackWebViewModal
+          url={paymentUrl}
+          visible={webViewVisible}
+          onSuccess={handlePaymentSuccess}
+          onCancel={handlePaymentCancel}
+          onDismiss={handlePaymentDismiss}
         />
       )}
     </SafeAreaView>

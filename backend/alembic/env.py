@@ -8,10 +8,15 @@ from app.db.base import Base
 # before Alembic inspects it. Order matters for foreign-key dependencies:
 # user must come before marketplace models that reference it.
 from app.models import (  # noqa: F401  — side-effect imports
+    Booking,
+    Classroom,
+    ClassroomParticipant,
     DayOfWeek,
+    Refund,
     Review,
     Subject,
     TeachingMode,
+    Transaction,
     TutorAvailability,
     TutorProfile,
     TutorSubject,

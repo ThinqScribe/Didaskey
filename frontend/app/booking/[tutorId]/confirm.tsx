@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
-  StatusBar,
   Text,
   View,
 } from "react-native";
-import { WebView, type WebViewNavigation } from "react-native-webview";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+import PaystackWebViewModal from "@/components/payment/PaystackWebViewModal";
 import { Colors, Spacing } from "@/constants";
 import { useAuthStore } from "@/lib/store/auth";
 import {
@@ -21,22 +18,12 @@ import {
   getBooking,
   type SessionFormat,
   type BookingWithPaystack,
+  type BookingResponse,
   sessionFormatLabel,
   formatBookingDate,
   formatBookingTimeRange,
   formatCurrency,
 } from "@/lib/api/bookings";
-
-// ── Paystack success/cancel URL patterns ──────────────────────────────────────
-// Paystack redirects to these after the transaction completes.
-const SUCCESS_PATTERNS = [
-  "paystack.com/close",
-  "checkout.paystack.com/close",
-  "standard.paystack.com/close",
-];
-const CANCEL_PATTERNS = [
-  "paystack.com/close",
-];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -120,218 +107,6 @@ function InfoLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ── Paystack WebView Modal ────────────────────────────────────────────────────
-
-function PaystackWebViewModal({
-  url,
-  visible,
-  onSuccess,
-  onCancel,
-}: {
-  url: string;
-  visible: boolean;
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
-  const [webLoading, setWebLoading] = useState(true);
-  const [handled, setHandled] = useState(false);
-  const [showContinueButton, setShowContinueButton] = useState(false);
-
-  const handleNavChange = useCallback(
-    (nav: WebViewNavigation) => {
-      if (handled) return;
-      const navUrl = nav.url ?? "";
-      
-      // Log all navigation for debugging
-      console.log("[PaystackWebView] Navigation:", navUrl);
-      
-      // Paystack success patterns - being very permissive since test vs live behave differently
-      if (
-        navUrl.includes("paystack.com/close") ||
-        navUrl.includes("checkout.paystack.com") ||
-        navUrl.includes("standard.paystack.com") ||
-        navUrl.includes("success") ||
-        navUrl.includes("trxref") ||
-        navUrl.includes("reference") ||
-        // Handle the case where Paystack redirects back to itself after payment
-        (navUrl !== url && navUrl.includes("paystack"))
-      ) {
-        console.log("[PaystackWebView] Success detected for URL:", navUrl);
-        setHandled(true);
-        onSuccess();
-        return;
-      }
-      
-      // Explicit cancel patterns
-      if (navUrl.includes("cancel") || navUrl.includes("cancelled")) {
-        console.log("[PaystackWebView] Cancel detected for URL:", navUrl);
-        setHandled(true);
-        onCancel();
-        return;
-      }
-    },
-    [handled, onSuccess, onCancel, url]
-  );
-
-  // Fallback: if WebView has been loaded for 30s with no redirect, assume success
-  // Some Paystack flows don't redirect at all after payment completion
-  // Show continue button after 8 seconds, auto-continue after 25 seconds
-  useEffect(() => {
-    if (!webLoading && !handled && visible) {
-      const showButtonTimer = setTimeout(() => {
-        if (!handled) {
-          setShowContinueButton(true);
-        }
-      }, 8000);
-      
-      const autoTimer = setTimeout(() => {
-        if (!handled) {
-          console.log("[PaystackWebView] Auto-continue timeout");
-          setHandled(true);
-          onSuccess();
-        }
-      }, 25000);
-      
-      return () => {
-        clearTimeout(showButtonTimer);
-        clearTimeout(autoTimer);
-      };
-    }
-  }, [webLoading, handled, visible, onSuccess]);
-
-  // Status bar height for manual safe area inside Modal
-  const statusBarHeight = Platform.OS === "android"
-    ? (StatusBar.currentHeight ?? 24)
-    : 50; // iOS approximate — safe enough for the header
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onCancel}
-    >
-      <View style={{ flex: 1, backgroundColor: "#fff" }}>
-        {/* Manual top inset so header isn't hidden under status bar */}
-        <View style={{ height: statusBarHeight, backgroundColor: "#fff" }} />
-
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: Colors.border,
-            backgroundColor: "#fff",
-          }}
-        >
-          <Pressable
-            onPress={onCancel}
-            hitSlop={10}
-            style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
-          >
-            <Ionicons name="close" size={22} color={Colors.charcoal} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              textAlign: "center",
-              fontSize: 15,
-              fontFamily: "sans-bold",
-              color: Colors.charcoal,
-            }}
-          >
-            Secure Payment
-          </Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        {/* WebView */}
-        <View style={{ flex: 1 }}>
-          {webLoading && (
-            <View
-              style={{
-                position: "absolute",
-                top: 0, left: 0, right: 0, bottom: 0,
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 10,
-                backgroundColor: "#fff",
-              }}
-            >
-              <ActivityIndicator size="large" color={Colors.deepTeal} />
-              <Text
-                style={{
-                  marginTop: 12,
-                  fontSize: 13,
-                  fontFamily: "sans-medium",
-                  color: Colors.mutedForeground,
-                }}
-              >
-                Loading secure checkout…
-              </Text>
-            </View>
-          )}
-          <WebView
-            source={{ uri: url }}
-            onNavigationStateChange={handleNavChange}
-            onLoadStart={() => setWebLoading(true)}
-            onLoadEnd={() => setWebLoading(false)}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState={false}
-            style={{ flex: 1 }}
-          />
-          
-          {/* Continue button - shows if payment seems stuck */}
-          {showContinueButton && !handled && (
-            <View
-              style={{
-                position: "absolute",
-                bottom: 20,
-                left: 20,
-                right: 20,
-                backgroundColor: Colors.deepTeal,
-                borderRadius: 12,
-                padding: 16,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 4,
-                elevation: 5,
-              }}
-            >
-              <Pressable
-                onPress={() => {
-                  setHandled(true);
-                  onSuccess();
-                }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <Ionicons name="checkmark" size={18} color={Colors.white} />
-                <Text
-                  style={{
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontFamily: "sans-bold",
-                  }}
-                >
-                  Payment Complete - Continue
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function ConfirmScreen() {
@@ -398,42 +173,40 @@ export default function ConfirmScreen() {
 
   const pollForConfirmation = useCallback(async () => {
     if (!booking) return;
-    for (let i = 0; i < 10; i++) {
-      const updated = await getBooking(booking.id);
-      if (updated.status === "confirmed") {
-        router.replace({
-          pathname: `/booking/${tutorId}/success` as any,
-          params: {
-            bookingId: String(updated.id),
-            displayName: params.displayName,
-            subjectName: params.subjectName ?? "",
-            scheduledAt: updated.scheduled_at,
-            duration: String(updated.duration_minutes),
-            sessionFormat: updated.session_format,
-            amount: String(updated.amount),
-            currency: updated.currency,
-            reference: booking.paystack_reference,
-          },
-        });
-        return;
+
+    // Helper — build safe string params and navigate.
+    const goToSuccess = (b: typeof booking | BookingResponse) => {
+      router.replace({
+        pathname: `/booking/${tutorId}/success` as any,
+        params: {
+          bookingId: String(b.id),
+          displayName: params.displayName ?? "",
+          subjectName: params.subjectName ?? "",
+          scheduledAt: String(b.scheduled_at),
+          duration: String(b.duration_minutes),
+          sessionFormat: String(b.session_format),
+          amount: String(b.amount),
+          currency: String(b.currency),
+          reference: booking.paystack_reference ?? "",
+        },
+      });
+    };
+
+    for (let i = 0; i < 15; i++) {
+      try {
+        const updated = await getBooking(booking.id);
+        if (updated.status === "confirmed") {
+          goToSuccess(updated);
+          return;
+        }
+      } catch {
+        // network blip — keep polling
       }
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 2000));
     }
-    // Webhook may still be in flight — go to success screen anyway and let it settle
-    router.replace({
-      pathname: `/booking/${tutorId}/success` as any,
-      params: {
-        bookingId: String(booking.id),
-        displayName: params.displayName,
-        subjectName: params.subjectName ?? "",
-        scheduledAt: booking.scheduled_at,
-        duration: String(booking.duration_minutes),
-        sessionFormat: booking.session_format,
-        amount: String(booking.amount),
-        currency: booking.currency,
-        reference: booking.paystack_reference,
-      },
-    });
+
+    // Webhook still in flight — navigate optimistically with local data.
+    goToSuccess(booking);
   }, [booking, tutorId, params]);
 
   const handleWebSuccess = useCallback(() => {
@@ -441,9 +214,16 @@ export default function ConfirmScreen() {
     pollForConfirmation();
   }, [pollForConfirmation]);
 
+  // Paystack itself sent a cancel signal (user tapped Cancel inside checkout).
   const handleWebCancel = useCallback(() => {
     setWebVisible(false);
     setError("Payment was cancelled. Your slot is still reserved — tap Pay to try again.");
+  }, []);
+
+  // User pressed × or the hardware back button — just hide the modal,
+  // no error message, so they can tap Pay again without confusion.
+  const handleWebDismiss = useCallback(() => {
+    setWebVisible(false);
   }, []);
 
   // ── Display helpers ───────────────────────────────────────────────────────
@@ -466,6 +246,7 @@ export default function ConfirmScreen() {
           visible={webVisible}
           onSuccess={handleWebSuccess}
           onCancel={handleWebCancel}
+          onDismiss={handleWebDismiss}
         />
       ) : null}
 

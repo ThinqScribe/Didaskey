@@ -40,6 +40,7 @@ export interface TransactionSummary {
 export interface BookingResponse {
   id: number;
   student_id: number;
+  student_name: string | null;
   tutor_id: number;
   tutor_name: string;
   subject_id: number | null;

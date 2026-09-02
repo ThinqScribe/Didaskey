@@ -7,6 +7,12 @@ from app.models.billing import (
     Transaction,
     TransactionStatus,
 )
+from app.models.communication import (
+    Classroom,
+    ClassroomParticipant,
+    ClassroomStatus,
+    ParticipantRole,
+)
 from app.models.marketplace import (
     DayOfWeek,
     Review,
@@ -42,4 +48,10 @@ __all__ = [
     "TeachingMode",
     "DayOfWeek",
     "VerificationStatus",
+    # communication
+    "Classroom",
+    "ClassroomParticipant",
+    # communication enums
+    "ClassroomStatus",
+    "ParticipantRole",
 ]

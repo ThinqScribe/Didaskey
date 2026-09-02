@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>LiveKit Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        #logs { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; max-height: 400px; overflow-y: scroll; }
+        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+        video { width: 100%; max-width: 300px; height: 200px; background: #000; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 LiveKit Video Call Test</h1>
+        
+        <div class="status info">
+            <strong>Test Configuration:</strong><br>
+            LiveKit URL: <span id="livekit-url">Loading...</span><br>
+            Room: <span id="room-name">Loading...</span><br>
+            User: <span id="user-name">Loading...</span>
+        </div>
+
+        <div>
+            <button class="btn-primary" onclick="testPermissions()">Test Camera/Mic Permissions</button>
+            <button class="btn-success" onclick="testConnection()" id="connect-btn">Test LiveKit Connection</button>
+            <button class="btn-danger" onclick="disconnect()" id="disconnect-btn" disabled>Disconnect</button>
+        </div>
+
+        <div class="video-container">
+            <div>
+                <h4>Local Video</h4>
+                <video id="local-video" autoplay muted></video>
+            </div>
+            <div>
+                <h4>Remote Video</h4>
+                <video id="remote-video" autoplay></video>
+            </div>
+        </div>
+
+        <h3>Test Logs</h3>
+        <div id="logs"></div>
+    </div>
+
+    <!-- LiveKit SDK -->
+    <script src="https://unpkg.com/livekit-client@2.13.4/dist/livekit-client.umd.js"></script>
+    
+    <script>
+        // Test configuration - replace with actual values
+        const CONFIG = {
+            livekitUrl: 'wss://didaskey-b320v6cw.livekit.cloud',
+            apiKey: 'APILyjorMiDXKmJ',
+            apiSecret: '9HuAXmVIS3WTJzaWn9AFF6t0j0SGwPipJ3F0d5FwwfQ',
+            roomName: 'test-room-' + Date.now(),
+            identity: 'test-user-' + Date.now(),
+            displayName: 'Test User'
+        };
+
+        let room = null;
+        let localTracks = [];
+
+        // Logging
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logs = document.getElementById('logs');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logs.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        // Generate JWT token (normally done server-side)
+        function generateTestToken() {
+            // This is a simplified token generation for testing only
+            // In production, tokens should ALWAYS be generated server-side
+            const header = { alg: 'HS256', typ: 'JWT' };
+            const now = Math.floor(Date.now() / 1000);
+            const payload = {
+                iss: CONFIG.apiKey,
+                sub: CONFIG.identity,
+                iat: now,
+                nbf: now - 5,
+                exp: now + 3600, // 1 hour
+                jti: 'test-' + Math.random().toString(36).substr(2, 9),
+                name: CONFIG.displayName,
+                video: {
+                    room: CONFIG.roomName,
+                    roomJoin: true,
+                    canPublish: true,
+                    canSubscribe: true,
+                    canPublishData: true
+                }
+            };
+
+            // Simple JWT encoding (for testing only - use proper library in production)
+            function base64url(str) {
+                return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            }
+
+            const encodedHeader = base64url(JSON.stringify(header));
+            const encodedPayload = base64url(JSON.stringify(payload));
+            
+            // HMAC-SHA256 signature (simplified - use proper crypto library in production)
+            const message = encodedHeader + '.' + encodedPayload;
+            
+            // For this test, we'll create a mock signature
+            // In a real scenario, you'd use the server endpoint
+            const signature = base64url('mock-signature-for-testing');
+            
+            return message + '.' + signature;
+        }
+
+        // Initialize display
+        document.getElementById('livekit-url').textContent = CONFIG.livekitUrl;
+        document.getElementById('room-name').textContent = CONFIG.roomName;
+        document.getElementById('user-name').textContent = CONFIG.displayName;
+
+        // Test camera/microphone permissions
+        async function testPermissions() {
+            try {
+                log('Testing camera and microphone permissions...', 'info');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: true 
+                });
+                
+                log('✓ Camera and microphone permissions granted', 'success');
+                log(`✓ Video tracks: ${stream.getVideoTracks().length}`, 'success');
+                log(`✓ Audio tracks: ${stream.getAudioTracks().length}`, 'success');
+                
+                // Show local video
+                const localVideo = document.getElementById('local-video');
+                localVideo.srcObject = stream;
+                
+                // Stop the test stream after showing it works
+                setTimeout(() => {
+                    stream.getTracks().forEach(track => track.stop());
+                    log('Test stream stopped', 'info');
+                }, 3000);
+                
+            } catch (error) {
+                log(`✗ Permission denied: ${error.message}`, 'error');
+                log('Please allow camera and microphone access to continue', 'error');
+            }
+        }
+
+        // Test LiveKit connection
+        async function testConnection() {
+            try {
+                if (!window.LivekitClient) {
+                    throw new Error('LiveKit SDK not loaded');
+                }
+
+                log('Creating LiveKit room...', 'info');
+                room = new window.LivekitClient.Room({
+                    adaptiveStream: true,
+                    dynacast: true
+                });
+
+                // Set up event listeners
+                room.on(window.LivekitClient.RoomEvent.Connected, () => {
+                    log('✓ Connected to LiveKit room!', 'success');
+                    document.getElementById('connect-btn').disabled = true;
+                    document.getElementById('disconnect-btn').disabled = false;
+                });
+
+                room.on(window.LivekitClient.RoomEvent.Disconnected, () => {
+                    log('Disconnected from LiveKit room', 'info');
+                    document.getElementById('connect-btn').disabled = false;
+                    document.getElementById('disconnect-btn').disabled = true;
+                });
+
+                room.on(window.LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+                    log(`✓ Participant joined: ${participant.name || participant.identity}`, 'success');
+                });
+
+                room.on(window.LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    log(`✓ Track received from ${participant.name}: ${track.kind}`, 'success');
+                    
+                    if (track.kind === 'video') {
+                        const element = track.attach();
+                        document.getElementById('remote-video').replaceWith(element);
+                        element.id = 'remote-video';
+                    }
+                });
+
+                room.on(window.LivekitClient.RoomEvent.ConnectionStateChanged, (state) => {
+                    log(`Connection state: ${state}`, 'info');
+                });
+
+                // For testing, we'll try to connect without a proper token first
+                // to see if we can reach the LiveKit server
+                log('WARNING: This test uses a mock token and will likely fail authentication', 'error');
+                log('This tests network connectivity to LiveKit, not full functionality', 'info');
+                
+                const mockToken = generateTestToken();
+                log('Generated mock token (first 50 chars): ' + mockToken.substr(0, 50) + '...', 'info');
+                
+                log('Attempting connection to LiveKit...', 'info');
+                await room.connect(CONFIG.livekitUrl, mockToken);
+
+            } catch (error) {
+                log(`✗ Connection failed: ${error.message}`, 'error');
+                
+                if (error.message.includes('JWS signature verification failed')) {
+                    log('This is expected - the mock token signature is invalid', 'info');
+                    log('✓ Good news: We can reach the LiveKit server!', 'success');
+                    log('The authentication failed as expected with our mock token', 'info');
+                } else if (error.message.includes('network') || error.message.includes('timeout')) {
+                    log('✗ Network connectivity issue to LiveKit server', 'error');
+                    log('Check firewall settings and internet connection', 'error');
+                } else {
+                    log('Unexpected error - check browser console for details', 'error');
+                }
+                
+                document.getElementById('connect-btn').disabled = false;
+                document.getElementById('disconnect-btn').disabled = true;
+            }
+        }
+
+        // Disconnect
+        function disconnect() {
+            if (room) {
+                room.disconnect();
+                room = null;
+            }
+            
+            localTracks.forEach(track => track.stop());
+            localTracks = [];
+            
+            log('Disconnected', 'info');
+        }
+
+        // Initialize
+        log('LiveKit Video Test loaded', 'success');
+        log('Click "Test Camera/Mic Permissions" first, then "Test LiveKit Connection"', 'info');
+        
+        if (!window.LivekitClient) {
+            log('✗ LiveKit SDK failed to load', 'error');
+        } else {
+            log('✓ LiveKit SDK loaded successfully', 'success');
+        }
+    </script>
+</body>
+</html>

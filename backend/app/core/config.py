@@ -34,11 +34,30 @@ class Settings(BaseSettings):
     Set this to the same value configured in the Paystack dashboard.
     """
 
+    # ── LiveKit (video classroom) ────────────────────────────────────────────
+    LIVEKIT_URL: str = ""
+    """WebSocket URL of the LiveKit server/Cloud project, e.g. wss://foo.livekit.cloud."""
+
+    LIVEKIT_API_KEY: str = ""
+    """LiveKit API key used to sign access tokens."""
+
+    LIVEKIT_API_SECRET: str = ""
+    """LiveKit API secret. Never exposed to clients — used only to sign JWTs server-side."""
+
+    CLASSROOM_JOIN_BEFORE_MINUTES: int = 10
+    """How many minutes before the scheduled start a classroom may be joined."""
+
+    CLASSROOM_JOIN_GRACE_MINUTES: int = 30
+    """How many minutes after the scheduled end time the classroom stays joinable."""
+
+    CLASSROOM_TOKEN_TTL_MINUTES: int = 180
+    """Validity window of an issued LiveKit access token."""
+
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore")
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 
 @lru_cache

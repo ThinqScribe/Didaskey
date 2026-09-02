@@ -72,7 +72,7 @@ export default function HomeScreen() {
   const firstName = user?.first_name ?? "there";
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: Colors.background }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={

@@ -12,7 +12,7 @@ export default function ChatScreen() {
   const { refreshing, onRefresh } = useRefresh(useCallback(async () => {}, []));
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: Colors.background }}>
       {/* Header */}
       <View
         style={{ paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: Spacing.base }}

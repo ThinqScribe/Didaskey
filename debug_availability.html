@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Debug Availability Issue</title>
+<style>
+body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+.result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+.success { background: #d4edda; }
+.error { background: #f8d7da; }
+.info { background: #d1ecf1; }
+</style>
+</head>
+<body>
+
+<h1>Availability Debug Test</h1>
+
+<div id="results"></div>
+
+<script>
+// Simulate the frontend logic
+const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+// Sample availability slots from API (Dr. Alex Morgan)
+const availabilitySlots = [
+  {"day_of_week": "friday", "start_time": "10:00:00", "end_time": "15:00:00"},
+  {"day_of_week": "monday", "start_time": "09:00:00", "end_time": "12:00:00"},
+  {"day_of_week": "monday", "start_time": "14:00:00", "end_time": "17:00:00"},
+  {"day_of_week": "saturday", "start_time": "08:00:00", "end_time": "12:00:00"},
+  {"day_of_week": "sunday", "start_time": "09:00:00", "end_time": "12:00:00"},
+  {"day_of_week": "tuesday", "start_time": "10:00:00", "end_time": "14:00:00"},
+  {"day_of_week": "wednesday", "start_time": "09:00:00", "end_time": "13:00:00"}
+];
+
+function log(message, type = 'info') {
+  const results = document.getElementById('results');
+  const div = document.createElement('div');
+  div.className = `result ${type}`;
+  div.textContent = message;
+  results.appendChild(div);
+}
+
+function generateSlots(start, end) {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const startMins = sh * 60 + sm;
+  const endMins = eh * 60 + em;
+  const slots = [];
+  for (let m = startMins; m < endMins; m += 30) {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    slots.push(`${h.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}:00`);
+  }
+  return slots;
+}
+
+function getSlotsForDate(date) {
+  const dayName = DAY_NAMES[date.getDay()];
+  log(`Date: ${date.toDateString()}, Day index: ${date.getDay()}, Day name: "${dayName}"`);
+  
+  const windows = availabilitySlots.filter((s) => s.day_of_week === dayName);
+  log(`Found ${windows.length} availability windows for ${dayName}`);
+  
+  const all = [];
+  for (const w of windows) {
+    const slots = generateSlots(w.start_time, w.end_time);
+    log(`Window ${w.start_time}-${w.end_time}: ${slots.length} slots`);
+    all.push(...slots);
+  }
+  
+  const unique = [...new Set(all)].sort();
+  log(`Total unique slots: ${unique.length}`);
+  return unique;
+}
+
+function isDayAvailable(date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (date < today) {
+    log(`Date ${date.toDateString()} is in the past`, 'error');
+    return false;
+  }
+  
+  const availableDayNames = new Set(availabilitySlots.map((s) => s.day_of_week));
+  const dayName = DAY_NAMES[date.getDay()];
+  
+  if (!availableDayNames.has(dayName)) {
+    log(`Day "${dayName}" not in available days: [${Array.from(availableDayNames).join(', ')}]`, 'error');
+    return false;
+  }
+  
+  return true;
+}
+
+// Test September 1, 2026 (Tuesday)
+log('=== Testing September 1, 2026 ===');
+const sept1 = new Date(2026, 8, 1); // Month is 0-indexed
+const isAvailable = isDayAvailable(sept1);
+log(`Is September 1, 2026 available? ${isAvailable}`, isAvailable ? 'success' : 'error');
+
+if (isAvailable) {
+  const slots = getSlotsForDate(sept1);
+  log(`Available time slots: ${slots.join(', ')}`, 'success');
+} else {
+  log('No slots available', 'error');
+}
+
+// Test available days
+log('\n=== Available Days ===');
+const availableDays = new Set(availabilitySlots.map(s => s.day_of_week));
+log(`Available days: ${Array.from(availableDays).join(', ')}`);
+
+// Test current date
+log('\n=== Current Date Info ===');
+const now = new Date();
+log(`Current date: ${now.toDateString()}`);
+log(`Current day index: ${now.getDay()}`);
+log(`Current day name: ${DAY_NAMES[now.getDay()]}`);
+
+</script>
+
+</body>
+</html>

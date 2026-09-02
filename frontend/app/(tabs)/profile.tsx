@@ -154,14 +154,14 @@ export default function StudentProfile() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center" edges={["top"]}>
+      <SafeAreaView className="flex-1 items-center justify-center" edges={["top"]} style={{ backgroundColor: Colors.background }}>
         <ActivityIndicator color={Colors.teal} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: Colors.background }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={

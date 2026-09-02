@@ -124,6 +124,7 @@ async def initialize_transaction(
     amount: Decimal,
     currency: str,
     reference: str,
+    callback_url: str | None = None,
     metadata: dict | None = None,
 ) -> PaystackInitResponse:
     """
@@ -142,6 +143,12 @@ async def initialize_transaction(
     reference:
         Our UUID4 reference (Transaction.paystack_reference).
         Must be unique per transaction.
+    callback_url:
+        URL Paystack redirects the customer to after payment completes.
+        The WebView intercepts this URL to detect a completed payment
+        without relying on the Paystack webhook.  Should be an HTTPS URL
+        that resolves (or is intercepted before loading) — e.g.
+        ``https://didaskey.app/payment/callback``.
     metadata:
         Optional dict forwarded to Paystack as ``metadata``. Can carry
         ``booking_id`` for traceability in the Paystack dashboard.
@@ -164,6 +171,8 @@ async def initialize_transaction(
         "currency": currency.upper(),
         "reference": reference,
     }
+    if callback_url:
+        payload["callback_url"] = callback_url
     if metadata:
         payload["metadata"] = metadata
 

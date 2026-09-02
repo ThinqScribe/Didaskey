@@ -14,7 +14,10 @@ import * as SecureStore from "expo-secure-store";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-export const BASE_URL = "http://172.20.10.4:8000/api/v1";
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://172.20.10.4:8000";
+
+export const BASE_URL = `${API_BASE}/api/v1`;
+export const SERVER_URL = API_BASE; // Without /api/v1 suffix, for classroom.html
 
 export const TOKEN_KEYS = {
   ACCESS: "didaskey_access_token",

@@ -75,7 +75,7 @@ export default function SearchScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: Colors.background }}>
       <View style={{ paddingHorizontal: Spacing.xl, paddingTop: Spacing.base }}>
         <Text className="text-[22px] font-sans-bold text-charcoal mb-4">Find a Tutor</Text>
 

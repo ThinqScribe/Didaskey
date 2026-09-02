@@ -41,7 +41,7 @@ function modeLabel(mode: string): string {
 
 function SubjectChip({ name }: { name: string }) {
   return (
-    <View className="rounded-lg border border-border bg-background px-3 py-1.5 mr-2 mb-2">
+    <View className="rounded-lg border border-border px-3 py-1.5 mr-2 mb-2" style={{ backgroundColor: Colors.background }}>
       <Text className="text-[11px] font-sans-medium text-charcoal">
         {name}
       </Text>
@@ -136,7 +136,8 @@ export default function TutorDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView
-        className="flex-1 bg-background items-center justify-center"
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: Colors.background }}
         edges={["top"]}
       >
         <ActivityIndicator size="small" color={Colors.teal} />
@@ -151,7 +152,8 @@ export default function TutorDetailScreen() {
   if (error || !tutor) {
     return (
       <SafeAreaView
-        className="flex-1 bg-background items-center justify-center"
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: Colors.background }}
         edges={["top"]}
       >
         <Ionicons

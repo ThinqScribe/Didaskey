@@ -38,6 +38,14 @@
             "backgroundColor": "#F5F0E8"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Didaskey needs camera access so you can be seen during live tutoring sessions.",
+          "microphonePermission": "Didaskey needs microphone access so you can be heard during live tutoring sessions.",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "experiments": {

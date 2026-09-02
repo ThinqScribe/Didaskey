@@ -102,9 +102,15 @@ def _build_response(booking: Booking) -> BookingResponse:
             currency=booking.transaction.currency,
             paid_at=booking.transaction.paid_at,
         )
+
+    student_name: str | None = None
+    if hasattr(booking, "student") and booking.student is not None:
+        student_name = f"{booking.student.first_name} {booking.student.last_name}".strip()
+
     return BookingResponse(
         id=booking.id,
         student_id=booking.student_id,
+        student_name=student_name,
         tutor_id=booking.tutor_id,
         tutor_name=booking.tutor.display_name,
         subject_id=booking.subject_id,
@@ -142,7 +148,21 @@ def _check_ownership(booking: Booking, user: User) -> None:
 
 
 def _day_name(dt: datetime) -> str:
-    """Return the lowercase day name for a UTC datetime (e.g. 'monday')."""
+    """
+    Return the lowercase day name for a datetime using its own UTC offset
+    (i.e. the wall-clock day at the location implied by the offset).
+
+    Tutor availability slots are stored as local wall-clock times (no
+    timezone info), so we must compare using the *local* day — not the
+    UTC day — to avoid the off-by-one that occurs for slots near midnight.
+
+    If ``dt`` is naive we fall back to treating it as UTC, which matches
+    the rest of the codebase's naive-datetime assumption.
+    """
+    if dt.tzinfo is None:
+        # Naive → assume UTC
+        return dt.strftime("%A").lower()
+    # Keep the wall-clock representation; don't convert to UTC.
     return dt.strftime("%A").lower()
 
 
@@ -156,12 +176,20 @@ async def _assert_tutor_available(
     Check that the requested slot falls within one of the tutor's weekly
     availability windows.
 
+    Availability start_time / end_time values are stored as plain
+    wall-clock times (no timezone), set by the tutor in their local time.
+    We therefore compare using the *local* wall-clock representation of
+    ``scheduled_at`` (i.e. the time as the client sent it, preserving the
+    UTC offset) rather than converting to UTC first.
+
     Raises 409 if no matching window is found.
     """
-    day = _day_name(scheduled_at)
-    session_start = scheduled_at.time().replace(tzinfo=None)
+    # Preserve the original UTC offset so wall-clock hour/day are correct.
+    local_start = scheduled_at if scheduled_at.tzinfo is not None else scheduled_at.replace(tzinfo=timezone.utc)
+    day = _day_name(local_start)
+    session_start = local_start.time().replace(tzinfo=None)
     session_end = (
-        scheduled_at + timedelta(minutes=duration_minutes)
+        local_start + timedelta(minutes=duration_minutes)
     ).time().replace(tzinfo=None)
 
     slots = (
@@ -280,11 +308,18 @@ async def create_booking(
     )
 
     # ── 5. Create Booking ─────────────────────────────────────────────────────
+    # Coerce scheduled_at to UTC explicitly before writing to the DB.
+    # The Pydantic schema already rejects naive datetimes, but the client
+    # may send a valid tz-aware datetime in a non-UTC zone (e.g. WAT/UTC+1).
+    # Storing as UTC ensures join-window comparisons in classroom_service
+    # are always against a consistent reference.
+    scheduled_at_utc = _as_utc(payload.scheduled_at)
+
     booking = Booking(
         student_id=student.id,
         tutor_id=tutor.id,
         subject_id=payload.subject_id,
-        scheduled_at=payload.scheduled_at,
+        scheduled_at=scheduled_at_utc,
         duration_minutes=payload.duration_minutes,
         session_format=payload.session_format,
         student_note=payload.student_note,
@@ -399,6 +434,7 @@ async def list_tutor_bookings(
             selectinload(Booking.transaction),
             selectinload(Booking.tutor),
             selectinload(Booking.subject),
+            selectinload(Booking.student),
         )
     )
     if status_filter:
@@ -548,6 +584,7 @@ async def _load_booking(booking_id: int, db: AsyncSession) -> Booking:
             selectinload(Booking.transaction),
             selectinload(Booking.tutor),
             selectinload(Booking.subject),
+            selectinload(Booking.student),
         )
     )
     if booking is None:

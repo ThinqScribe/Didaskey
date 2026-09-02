@@ -200,6 +200,9 @@ class Booking(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    student: Mapped[User] = relationship(
+        "User", foreign_keys=[student_id], lazy="joined"
+    )
     tutor: Mapped[TutorProfile] = relationship(
         "TutorProfile", foreign_keys=[tutor_id], lazy="joined"
     )

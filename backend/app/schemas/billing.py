@@ -120,6 +120,7 @@ class BookingResponse(BaseModel):
 
     id: int
     student_id: int
+    student_name: str | None = None
     tutor_id: int
     tutor_name: str
     subject_id: int | None

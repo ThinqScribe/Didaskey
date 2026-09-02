@@ -32,6 +32,7 @@ interface StudentSummary {
 function deriveStudents(bookings: BookingResponse[]): StudentSummary[] {
   const map = new Map<number, StudentSummary>();
   for (const b of bookings) {
+    const name = b.name
     const id = b.student_id;
     const existing = map.get(id);
     if (existing) {
@@ -43,7 +44,7 @@ function deriveStudents(bookings: BookingResponse[]): StudentSummary[] {
     } else {
       map.set(id, {
         studentId: id,
-        name: `Student #${id}`,
+        name: name,
         subject: b.subject_name ?? "General",
         sessions: 1,
         lastSession: b.scheduled_at,

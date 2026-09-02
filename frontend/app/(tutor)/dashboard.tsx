@@ -40,7 +40,7 @@ function UpcomingCard({ booking }: { booking: BookingResponse }) {
 
   return (
     <View className="flex-row items-center py-3 border-b border-border">
-      <View className="w-8 h-8 rounded-xl bg-muted items-center justify-center mr-3">
+      <View className="w-8 h-8 rounded-tr-xl rounded-bl-xl bg-muted items-center justify-center mr-3">
         <Ionicons name="school-outline" size={15} color={Colors.deepTeal} />
       </View>
       <View className="flex-1">
@@ -161,30 +161,82 @@ export default function TutorDashboard() {
         }}
       >
         {/* Header */}
-        <View className="flex-row items-center justify-between mb-5">
-          <View>
-            <Text className="text-[20px] font-sans-bold text-charcoal">
-              {profile?.display_name ?? `${user?.first_name} ${user?.last_name}`}
-            </Text>
-            <Text className="text-[13px] font-sans-medium text-teal">
-              {profile?.tutor_subjects[0]?.subject.name
-                ? `${profile.tutor_subjects[0].subject.name} Tutor`
-                : "Tutor"}
-            </Text>
-            {profile?.verification_status === "verified" && (
-              <View className="flex-row items-center gap-1 mt-1">
-                <Ionicons name="shield-checkmark" size={13} color={Colors.teal} />
-                <Text className="text-[12px] font-sans-semibold text-teal">Verified Tutor</Text>
-              </View>
-            )}
-          </View>
-          <Pressable
-            onPress={() => router.push("/(tutor)/profile")}
-            className="w-10 h-10 rounded-full bg-muted items-center justify-center"
-          >
-            <Ionicons name="notifications-outline" size={20} color={Colors.deepTeal} />
-          </Pressable>
+        <View className="mb-6">
+  <View className="flex-row items-center justify-between">
+    {/* Profile Info */}
+    <View className="flex-1 flex-row items-center">
+      {/* Avatar */}
+      <View className="w-12 h-12 rounded-full bg-lightTeal items-center justify-center mr-3">
+        <Text className="text-[17px] font-sans-bold text-deepTeal">
+          {(profile?.display_name ??
+            `${user?.first_name} ${user?.last_name}`)
+            .charAt(0)
+            .toUpperCase()}
+        </Text>
+      </View>
+
+      <View className="flex-1">
+        <Text className="text-[12px] font-sans-medium text-gray-500 mb-0.5">
+          Welcome back 👋
+        </Text>
+
+        <Text
+          numberOfLines={1}
+          className="text-[19px] font-sans-bold text-charcoal"
+        >
+          {profile?.display_name ??
+            `${user?.first_name} ${user?.last_name}`}
+        </Text>
+
+        <View className="flex-row items-center mt-0.5">
+          <Text className="text-[12px] font-sans-medium text-teal">
+            {profile?.tutor_subjects[0]?.subject.name
+              ? `${profile.tutor_subjects[0].subject.name} Tutor`
+              : "Tutor"}
+          </Text>
+
+          {profile?.verification_status === "verified" && (
+            <>
+              <View className="w-1 h-1 rounded-full bg-gray-300 mx-2" />
+
+              <Ionicons
+                name="shield-checkmark"
+                size={12}
+                color={Colors.teal}
+              />
+
+              <Text className="text-[11px] font-sans-semibold text-teal ml-1">
+                Verified
+              </Text>
+            </>
+          )}
         </View>
+      </View>
+    </View>
+
+    {/* Notifications */}
+    <Pressable
+      onPress={() => router.push("/(tutor)/profile")}
+      className="w-11 h-11 rounded-full bg-white border border-gray-100 items-center justify-center"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+      }}
+    >
+      <Ionicons
+        name="notifications-outline"
+        size={21}
+        color={Colors.deepTeal}
+      />
+
+      {/* Notification indicator */}
+      <View className="absolute top-[9px] right-[9px] w-[7px] h-[7px] rounded-full bg-teal border-2 border-white" />
+    </Pressable>
+  </View>
+</View>
 
         {/* Week overview banner */}
         <View className="rounded-tr-3xl rounded-bl-3xl px-5 py-4 mb-5"
@@ -215,7 +267,7 @@ export default function TutorDashboard() {
           </Pressable>
         </View>
 
-        <View className="bg-white rounded-2xl px-4 mb-5"
+        <View className="bg-white rounded-xl px-4 mb-5"
           style={{ borderWidth: 1, borderColor: Colors.border }}>
           {upcoming.length === 0 ? (
             <View className="items-center py-6">

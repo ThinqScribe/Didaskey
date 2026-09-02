@@ -40,7 +40,7 @@ export default function Index() {
   }, [status, user?.role]);
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F5F0E8" }}>
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f1d3a4" }}>
       <ActivityIndicator size="large" color="#17A389" />
     </View>
   );

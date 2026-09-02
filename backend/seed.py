@@ -201,6 +201,347 @@ TUTORS_DATA = [
             (DayOfWeek.SATURDAY,  "09:00", "13:00"),
         ],
     },
+    # ── Additional 10 Tutors ──────────────────────────────────────────────────
+    {
+        "user": {
+            "email": "sarah.johnson@didaskey.com",
+            "first_name": "Sarah",
+            "last_name": "Johnson",
+        },
+        "profile": {
+            "display_name": "Dr. Sarah Johnson",
+            "bio": (
+                "Experienced biochemist with a passion for making Biology come alive. "
+                "I specialize in cell biology, genetics, and ecology, helping students "
+                "understand complex biological processes through visual learning and "
+                "practical experiments. Perfect for WAEC, NECO, and A-Level preparation."
+            ),
+            "qualifications": "PhD in Biochemistry, University of Nigeria Nsukka",
+            "years_of_experience": 7,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Enugu",
+            "location_state": "Enugu State",
+            "rate_per_hour": Decimal("38.00"),
+            "currency": "NGN",
+            "total_hours_taught": 180,
+            "average_rating": Decimal("4.85"),
+            "review_count": 75,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Biology", "Chemistry"],
+        "availability": [
+            (DayOfWeek.TUESDAY,   "09:00", "13:00"),
+            (DayOfWeek.THURSDAY,  "14:00", "18:00"),
+            (DayOfWeek.SATURDAY,  "10:00", "16:00"),
+            (DayOfWeek.SUNDAY,    "09:00", "12:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "michael.adebayo@didaskey.com",
+            "first_name": "Michael",
+            "last_name": "Adebayo",
+        },
+        "profile": {
+            "display_name": "Prof. Michael Adebayo",
+            "bio": (
+                "Mathematics genius with 15+ years of experience in pure and applied mathematics. "
+                "I've helped over 500 students excel in JAMB, WAEC, and international exams. "
+                "My teaching method focuses on understanding concepts deeply rather than memorization, "
+                "making math enjoyable and less intimidating."
+            ),
+            "qualifications": "M.Sc. Pure Mathematics, University of Lagos, B.Sc. Mathematics (First Class)",
+            "years_of_experience": 15,
+            "teaching_mode": TeachingMode.ONLINE,
+            "location_city": "Lagos",
+            "location_state": "Lagos State",
+            "rate_per_hour": Decimal("42.00"),
+            "currency": "NGN",
+            "total_hours_taught": 420,
+            "average_rating": Decimal("4.95"),
+            "review_count": 156,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Mathematics", "Further Maths", "Physics"],
+        "availability": [
+            (DayOfWeek.MONDAY,    "08:00", "12:00"),
+            (DayOfWeek.WEDNESDAY, "08:00", "12:00"),
+            (DayOfWeek.FRIDAY,    "08:00", "12:00"),
+            (DayOfWeek.SATURDAY,  "09:00", "15:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "grace.okafor@didaskey.com",
+            "first_name": "Grace",
+            "last_name": "Okafor",
+        },
+        "profile": {
+            "display_name": "Mrs. Grace Okafor",
+            "bio": (
+                "Economics and Business Studies specialist with practical industry experience. "
+                "Former bank executive turned educator, I bring real-world economics into the classroom. "
+                "Excellent track record in helping students understand microeconomics, macroeconomics, "
+                "and business concepts for WAEC, NECO, and JAMB."
+            ),
+            "qualifications": "MBA Finance, Lagos Business School; B.Sc. Economics, University of Ibadan",
+            "years_of_experience": 9,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Ibadan",
+            "location_state": "Oyo State",
+            "rate_per_hour": Decimal("36.00"),
+            "currency": "NGN",
+            "total_hours_taught": 240,
+            "average_rating": Decimal("4.80"),
+            "review_count": 92,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Economics", "Mathematics"],
+        "availability": [
+            (DayOfWeek.TUESDAY,   "15:00", "19:00"),
+            (DayOfWeek.THURSDAY,  "15:00", "19:00"),
+            (DayOfWeek.SATURDAY,  "08:00", "14:00"),
+            (DayOfWeek.SUNDAY,    "10:00", "14:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "ibrahim.hassan@didaskey.com",
+            "first_name": "Ibrahim",
+            "last_name": "Hassan",
+        },
+        "profile": {
+            "display_name": "Engr. Ibrahim Hassan",
+            "bio": (
+                "Electrical Engineering graduate with expertise in Physics and Mathematics. "
+                "I specialize in making complex physics concepts simple through practical examples "
+                "and problem-solving techniques. Excellent for students preparing for engineering "
+                "entrance exams and A-Level physics."
+            ),
+            "qualifications": "B.Eng. Electrical Engineering, Ahmadu Bello University",
+            "years_of_experience": 6,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Kaduna",
+            "location_state": "Kaduna State",
+            "rate_per_hour": Decimal("34.00"),
+            "currency": "NGN",
+            "total_hours_taught": 150,
+            "average_rating": Decimal("4.75"),
+            "review_count": 68,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Physics", "Mathematics", "Further Maths"],
+        "availability": [
+            (DayOfWeek.MONDAY,    "17:00", "21:00"),
+            (DayOfWeek.WEDNESDAY, "17:00", "21:00"),
+            (DayOfWeek.FRIDAY,    "17:00", "21:00"),
+            (DayOfWeek.SATURDAY,  "09:00", "13:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "elizabeth.okon@didaskey.com",
+            "first_name": "Elizabeth",
+            "last_name": "Okon",
+        },
+        "profile": {
+            "display_name": "Dr. Elizabeth Okon",
+            "bio": (
+                "Organic Chemistry expert with research background in pharmaceutical chemistry. "
+                "I make chemistry enjoyable by relating it to everyday life and career applications. "
+                "Strong focus on practical chemistry, chemical equations, and exam techniques. "
+                "Perfect for students aiming for medicine, pharmacy, or engineering."
+            ),
+            "qualifications": "PhD in Organic Chemistry, University of Uyo",
+            "years_of_experience": 11,
+            "teaching_mode": TeachingMode.ONLINE,
+            "location_city": "Uyo",
+            "location_state": "Akwa Ibom State",
+            "rate_per_hour": Decimal("39.00"),
+            "currency": "NGN",
+            "total_hours_taught": 290,
+            "average_rating": Decimal("4.88"),
+            "review_count": 115,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Chemistry", "Biology"],
+        "availability": [
+            (DayOfWeek.MONDAY,    "10:00", "14:00"),
+            (DayOfWeek.WEDNESDAY, "10:00", "14:00"),
+            (DayOfWeek.FRIDAY,    "10:00", "14:00"),
+            (DayOfWeek.SUNDAY,    "09:00", "13:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "james.obiora@didaskey.com",
+            "first_name": "James",
+            "last_name": "Obiora",
+        },
+        "profile": {
+            "display_name": "Mr. James Obiora",
+            "bio": (
+                "Passionate English Language teacher with expertise in creative writing and oral communication. "
+                "Former journalist with 8 years of classroom experience. I help students develop "
+                "strong writing skills, reading comprehension, and confidence in spoken English. "
+                "Excellent for WAEC, NECO, and IELTS preparation."
+            ),
+            "qualifications": "M.A. English Language, University of Port Harcourt; B.A. Mass Communication",
+            "years_of_experience": 8,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Port Harcourt",
+            "location_state": "Rivers State",
+            "rate_per_hour": Decimal("30.00"),
+            "currency": "NGN",
+            "total_hours_taught": 210,
+            "average_rating": Decimal("4.70"),
+            "review_count": 87,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["English", "Literature"],
+        "availability": [
+            (DayOfWeek.TUESDAY,   "14:00", "18:00"),
+            (DayOfWeek.THURSDAY,  "14:00", "18:00"),
+            (DayOfWeek.SATURDAY,  "10:00", "16:00"),
+            (DayOfWeek.SUNDAY,    "11:00", "15:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "aisha.musa@didaskey.com",
+            "first_name": "Aisha",
+            "last_name": "Musa",
+        },
+        "profile": {
+            "display_name": "Dr. Aisha Musa",
+            "bio": (
+                "Mathematical physicist with expertise in advanced mathematics and theoretical physics. "
+                "I specialize in Further Mathematics, preparing students for A-Level and university entrance exams. "
+                "My approach combines rigorous mathematical proofs with intuitive understanding, "
+                "making complex topics accessible to dedicated students."
+            ),
+            "qualifications": "PhD in Mathematical Physics, University of Jos; M.Sc. Applied Mathematics",
+            "years_of_experience": 13,
+            "teaching_mode": TeachingMode.ONLINE,
+            "location_city": "Jos",
+            "location_state": "Plateau State",
+            "rate_per_hour": Decimal("45.00"),
+            "currency": "NGN",
+            "total_hours_taught": 320,
+            "average_rating": Decimal("4.92"),
+            "review_count": 134,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Further Maths", "Mathematics", "Physics"],
+        "availability": [
+            (DayOfWeek.MONDAY,    "09:00", "13:00"),
+            (DayOfWeek.TUESDAY,   "09:00", "13:00"),
+            (DayOfWeek.THURSDAY,  "09:00", "13:00"),
+            (DayOfWeek.SATURDAY,  "08:00", "12:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "peter.udo@didaskey.com",
+            "first_name": "Peter",
+            "last_name": "Udo",
+        },
+        "profile": {
+            "display_name": "Prof. Peter Udo",
+            "bio": (
+                "Literature enthusiast and creative writing coach with over a decade of experience. "
+                "Former newspaper editor turned academic, I help students develop critical thinking "
+                "through literature analysis and creative expression. Specializing in African literature, "
+                "poetry analysis, and essay writing for all examination levels."
+            ),
+            "qualifications": "M.Phil. Literature, University of Cape Coast; B.A. English Literature (First Class)",
+            "years_of_experience": 14,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Calabar",
+            "location_state": "Cross River State",
+            "rate_per_hour": Decimal("33.00"),
+            "currency": "NGN",
+            "total_hours_taught": 310,
+            "average_rating": Decimal("4.83"),
+            "review_count": 98,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Literature", "English"],
+        "availability": [
+            (DayOfWeek.MONDAY,    "15:00", "19:00"),
+            (DayOfWeek.WEDNESDAY, "15:00", "19:00"),
+            (DayOfWeek.FRIDAY,    "15:00", "19:00"),
+            (DayOfWeek.SUNDAY,    "09:00", "14:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "kemi.adeoye@didaskey.com",
+            "first_name": "Kemi",
+            "last_name": "Adeoye",
+        },
+        "profile": {
+            "display_name": "Mrs. Kemi Adeoye",
+            "bio": (
+                "Dedicated biology teacher with focus on human anatomy, genetics, and environmental science. "
+                "I use interactive teaching methods including virtual lab simulations and real-life case studies. "
+                "Strong track record in helping pre-med students excel in biology for JAMB and international exams. "
+                "Patient and encouraging teaching style."
+            ),
+            "qualifications": "M.Sc. Microbiology, University of Ibadan; B.Sc. Biology Education",
+            "years_of_experience": 9,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Abeokuta",
+            "location_state": "Ogun State",
+            "rate_per_hour": Decimal("35.00"),
+            "currency": "NGN",
+            "total_hours_taught": 195,
+            "average_rating": Decimal("4.78"),
+            "review_count": 81,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Biology", "Chemistry"],
+        "availability": [
+            (DayOfWeek.TUESDAY,   "10:00", "14:00"),
+            (DayOfWeek.THURSDAY,  "10:00", "14:00"),
+            (DayOfWeek.SATURDAY,  "09:00", "15:00"),
+            (DayOfWeek.SUNDAY,    "10:00", "13:00"),
+        ],
+    },
+    {
+        "user": {
+            "email": "daniel.ogunyemi@didaskey.com",
+            "first_name": "Daniel",
+            "last_name": "Ogunyemi",
+        },
+        "profile": {
+            "display_name": "Engr. Daniel Ogunyemi",
+            "bio": (
+                "Mechanical Engineer with passion for physics and mathematics education. "
+                "I bring engineering applications to physics concepts, making abstract ideas concrete "
+                "and relevant. Excellent in mechanics, thermodynamics, and electromagnetism. "
+                "Perfect for students interested in engineering careers and A-Level physics."
+            ),
+            "qualifications": "B.Eng. Mechanical Engineering (Second Class Upper), Obafemi Awolowo University",
+            "years_of_experience": 5,
+            "teaching_mode": TeachingMode.BOTH,
+            "location_city": "Ile-Ife",
+            "location_state": "Osun State",
+            "rate_per_hour": Decimal("32.00"),
+            "currency": "NGN",
+            "total_hours_taught": 130,
+            "average_rating": Decimal("4.73"),
+            "review_count": 59,
+            "verification_status": VerificationStatus.VERIFIED,
+        },
+        "subjects": ["Physics", "Mathematics"],
+        "availability": [
+            (DayOfWeek.MONDAY,    "16:00", "20:00"),
+            (DayOfWeek.WEDNESDAY, "16:00", "20:00"),
+            (DayOfWeek.SATURDAY,  "08:00", "14:00"),
+            (DayOfWeek.SUNDAY,    "09:00", "12:00"),
+        ],
+    },
 ]
 
 

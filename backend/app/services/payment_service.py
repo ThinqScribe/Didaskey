@@ -155,11 +155,16 @@ async def initiate_payment(
     await db.flush()
 
     # ── 5. Call Paystack ──────────────────────────────────────────────────────
+    # callback_url tells Paystack where to redirect after payment completes.
+    # The mobile WebView intercepts this URL before it actually loads, which
+    # is the only reliable way to detect payment completion inside a WebView
+    # (Paystack does not always fire a URL change on its own).
     init_resp = await paystack.initialize_transaction(
         email=student.email,
         amount=txn.amount,
         currency=txn.currency,
         reference=new_reference,
+        callback_url="https://didaskey.app/payment/callback",
         metadata={
             "booking_id": booking.id,
             "student_id": student.id,
