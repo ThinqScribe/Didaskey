@@ -10,7 +10,7 @@
  *
  * The fix is to serve the HTML shell from the backend at a real `http://`
  * URL (`GET /classroom.html`) and load it via `source={{ uri: ... }}`.
- * The page contains no secrets; LiveKit credentials are injected by the
+ * The page contains no secrets; Agora credentials are injected by the
  * React Native WebView via `injectedJavaScriptBeforeContentLoaded`, which
  * runs before any page script so `window.__CLS` is available the moment
  * the inline script boots.
@@ -22,28 +22,31 @@
  */
 
 export interface ClassroomConfig {
-  livekitUrl:  string;
-  token:       string;
-  displayName: string;
-  isTutor:     boolean;
+  agora_app_id:   string;
+  token:          string;
+  channel_name:   string;
+  user_id:        string;
+  display_name:   string;
+  role:           string;
 }
 
 /**
  * Return a JS snippet to run via `injectedJavaScriptBeforeContentLoaded`.
  *
- * Sets `window.__CLS` with the room config before the page's own script
+ * Sets `window.__CLS` with the Agora room config before the page's own script
  * executes, so the classroom boot function finds the values immediately.
  *
- * All values are JSON-encoded to produce safe JS string/boolean literals —
- * no manual escaping needed.
+ * All values are JSON-encoded to produce safe JS string literals.
  */
 export function buildClassroomInjection(cfg: ClassroomConfig): string {
   return (
     `window.__CLS = {` +
-    `  livekitUrl:  ${JSON.stringify(cfg.livekitUrl)},` +
-    `  token:       ${JSON.stringify(cfg.token)},` +
-    `  displayName: ${JSON.stringify(cfg.displayName)},` +
-    `  isTutor:     ${JSON.stringify(cfg.isTutor)}` +
+    `  agora_app_id:   ${JSON.stringify(cfg.agora_app_id)},` +
+    `  token:          ${JSON.stringify(cfg.token)},` +
+    `  channel_name:   ${JSON.stringify(cfg.channel_name)},` +
+    `  user_id:        ${JSON.stringify(cfg.user_id)},` +
+    `  display_name:   ${JSON.stringify(cfg.display_name)},` +
+    `  role:           ${JSON.stringify(cfg.role)}` +
     `};`
   );
 }

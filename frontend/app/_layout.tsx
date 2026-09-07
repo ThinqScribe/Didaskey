@@ -30,6 +30,26 @@ export default function RootLayout() {
         headerShown: false,
         contentStyle: { backgroundColor: "#f1d3a4" },
       }}
-    />
+    >
+      {/* Classroom screens are dark — override the warm-ivory background */}
+      <Stack.Screen
+        name="classroom/lobby"
+        options={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#0B3F43" },
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
+        name="classroom/[bookingId]"
+        options={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#0f172a" },
+          animation: "fade",
+          // Prevent swiping back mid-session
+          gestureEnabled: false,
+        }}
+      />
+    </Stack>
   );
 }

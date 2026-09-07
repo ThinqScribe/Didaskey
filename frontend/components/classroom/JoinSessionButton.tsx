@@ -1,11 +1,10 @@
 /**
  * "Join Session" control shown on booking cards for confirmed, online
- * bookings. Renders nothing for in-person or non-confirmed bookings.
+ * bookings. Tapping routes through the pre-class lobby.
  *
  * The countdown / enabled-state shown here is optimistic client-side UI
- * (see `getJoinWindow` in `lib/api/classrooms.ts`) — the backend
- * re-validates the real join window the moment the user actually taps
- * through to `/classroom/:bookingId`, so a stale client clock can never
+ * (see `getJoinWindow`). The backend re-validates the real join window
+ * the moment the user actually joins, so a stale client clock can never
  * let someone in early or lock them out when the server disagrees.
  */
 
@@ -20,7 +19,6 @@ import type { BookingResponse } from "@/lib/api/bookings";
 
 interface Props {
   booking: BookingResponse;
-  /** Display name of the other party (tutor for a student, student for a tutor). */
   counterpartName?: string | null;
 }
 
@@ -28,7 +26,7 @@ export function JoinSessionButton({ booking, counterpartName }: Props) {
   const isJoinable =
     booking.status === "confirmed" && booking.session_format === "online";
 
-  // Re-evaluate the countdown every 30s while a joinable card is on screen.
+  // Re-evaluate every 30 s while on screen
   const [tick, forceTick] = useState(0);
   useEffect(() => {
     if (!isJoinable) return;
@@ -36,14 +34,10 @@ export function JoinSessionButton({ booking, counterpartName }: Props) {
     return () => clearInterval(id);
   }, [isJoinable]);
 
-  // `tick` is intentionally included below but unused inside the body —
-  // it exists purely to force recomputation every 30s, since
-  // getJoinWindow() reads the current wall-clock time internally rather
-  // than taking it as an argument.
   const window = useMemo(
     () => getJoinWindow(booking.scheduled_at, booking.duration_minutes),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [booking.scheduled_at, booking.duration_minutes, tick]
+    [booking.scheduled_at, booking.duration_minutes, tick],
   );
 
   if (!isJoinable || window.isPast) return null;
@@ -55,9 +49,10 @@ export function JoinSessionButton({ booking, counterpartName }: Props) {
       disabled={!window.canJoinNow}
       onPress={() =>
         router.push({
-          pathname: `/classroom/${booking.id}` as any,
+          pathname: "/classroom/lobby" as any,
           params: {
-            title: booking.subject_name ?? "Session",
+            bookingId:       String(booking.id),
+            title:           booking.subject_name ?? "Session",
             counterpartName: counterpartName ?? "",
           },
         })

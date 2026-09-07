@@ -27,6 +27,14 @@
     },
     "plugins": [
       "expo-router",
+      "@livekit/react-native-expo-plugin",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Tuterra needs camera access for live tutoring sessions.",
+          "microphonePermission": "Tuterra needs microphone access for live tutoring sessions."
+        }
+      ],
       [
         "expo-splash-screen",
         {

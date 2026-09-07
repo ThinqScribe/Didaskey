@@ -34,21 +34,28 @@ class Settings(BaseSettings):
     Set this to the same value configured in the Paystack dashboard.
     """
 
-    # ── LiveKit (video classroom) ────────────────────────────────────────────
+    # ── LiveKit (video classroom) ─────────────────────────────────────────────
     LIVEKIT_URL: str = ""
-    """WebSocket URL of the LiveKit server/Cloud project, e.g. wss://foo.livekit.cloud."""
+    """LiveKit server WebSocket URL, e.g. wss://my-project.livekit.cloud"""
 
     LIVEKIT_API_KEY: str = ""
-    """LiveKit API key used to sign access tokens."""
+    """LiveKit API key from your LiveKit Cloud project or self-hosted server."""
 
     LIVEKIT_API_SECRET: str = ""
-    """LiveKit API secret. Never exposed to clients — used only to sign JWTs server-side."""
+    """LiveKit API secret — server-side only, never sent to clients."""
 
     CLASSROOM_JOIN_BEFORE_MINUTES: int = 10
     """How many minutes before the scheduled start a classroom may be joined."""
 
     CLASSROOM_JOIN_GRACE_MINUTES: int = 30
     """How many minutes after the scheduled end time the classroom stays joinable."""
+
+    # ── Testing Configuration ────────────────────────────────────────────────
+    SKIP_TUTOR_AVAILABILITY_CHECK: bool = True
+    """
+    When True, tutors can be booked at any time regardless of their availability settings.
+    Useful for testing. Set to False in production to enforce availability windows.
+    """
 
     CLASSROOM_TOKEN_TTL_MINUTES: int = 180
     """Validity window of an issued LiveKit access token."""

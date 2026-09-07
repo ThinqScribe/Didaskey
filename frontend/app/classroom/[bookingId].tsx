@@ -1,72 +1,77 @@
 /**
- * Live Video Classroom
+ * Live Classroom Screen — WebView implementation
  *
- * Reached by tapping "Join Session" on a confirmed, online booking from
- * either the student `(tabs)/bookings` screen or the tutor
- * `(tutor)/sessions` screen (see `components/classroom/JoinSessionButton.tsx`).
+ * Works in Expo Go AND in a dev build.
  *
- * Flow
- * ----
- * 1. Request camera + microphone permissions (see `app.json`'s
- *    `expo-camera` plugin config for the native permission strings).
- *    The call still proceeds even if only one is granted — e.g. a user
- *    who denies camera access can still join with audio only.
- * 2. Request a LiveKit join token from the backend
- *    (`POST /classrooms/bookings/:id/join`). The backend re-validates the
- *    join window, booking status, and participant ownership — this
- *    screen never assumes the window is open just because the button
- *    that led here was tappable.
- * 3. Render a WebView running LiveKit's browser SDK + the interactive
- *    whiteboard (see `lib/classroom/classroomHtml.ts`) with the returned token.
- *    The WebView manages its own layout modes ("video" / "board") internally
- *    and posts a { type:"mode", mode } message so this screen can adapt
- *    its RN overlay accordingly.
- * 4. The tutor (or an admin) sees an "End Session" action which marks the
- *    booking completed and disconnects everyone. Students only get
- *    "Leave", which just records their departure.
+ * How it works
+ * ------------
+ * 1. POST /classrooms/bookings/:id/join  →  livekit_url + token
+ * 2. Construct a LiveKit Meet URL:
+ *    https://meet.livekit.io/?liveKitUrl=wss://...&token=...
+ * 3. Open that URL in a full-screen WebView.
+ *    The hosted Meet app handles WebRTC entirely inside the browser —
+ *    Expo Go never touches a native WebRTC module.
+ * 4. Overlay our own header (title, timer, end/leave button) and
+ *    a bottom tab bar for the learning surfaces.
+ * 5. Resources and Chat tabs are pure React Native — rendered on top of
+ *    the WebView when selected.
  *
- * Board mode considerations
- * ─────────────────────────
- * When the whiteboard is active the WebView renders a 110 px PIP strip at
- * the very top of its own layout.  The RN floating header must therefore
- * sit *below* that strip so it does not cover the video tiles.  We track
- * `boardMode` state (toggled by the "mode" message) and shift the overlay
- * top position accordingly.
+ * Why this approach
+ * -----------------
+ * @livekit/react-native requires compiled native code and cannot run in
+ * Expo Go. A WebView-hosted video call works in Expo Go because the
+ * browser inside the WebView handles all media — no native module needed.
+ * When you later move to a dev build nothing changes; this screen keeps
+ * working exactly the same way.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
-  Linking,
+  FlatList,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
-  StatusBar,
+  ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { WebView, type WebViewMessageEvent } from "react-native-webview";
-import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
+import WebView from "react-native-webview";
 
 import { Colors } from "@/constants";
 import {
-  endClassroom,
   joinClassroom,
   leaveClassroom,
+  endClassroom,
   type ClassroomJoinResponse,
 } from "@/lib/api/classrooms";
-import { SERVER_URL } from "@/lib/api/client";
-import { buildClassroomInjection, classroomShellUrl } from "@/lib/classroom/classroomHtml";
+import { useAuthStore } from "@/lib/store/auth";
 
-type Phase     = "permission" | "loading" | "connecting" | "live" | "error" | "ended";
-type BoardMode = "video" | "board";
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-// Height of the WebView's own PIP strip (mirrors the CSS value in classroomHtml.ts).
-const PIP_STRIP_HEIGHT = 110;
+type Phase = "loading" | "live" | "error" | "ended";
+type ClassroomTab = "live" | "resources" | "chat";
+
+interface ChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: Date;
+  isLocal: boolean;
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ClassroomScreen() {
   const params = useLocalSearchParams<{
@@ -75,134 +80,87 @@ export default function ClassroomScreen() {
     counterpartName?: string;
   }>();
 
-  const bookingId      = Number(params.bookingId);
-  const title          = params.title || "Live Session";
-  const counterpartName = params.counterpartName || "";
+  const bookingId       = Number(params.bookingId);
+  const title           = params.title ?? "Live Session";
+  const counterpartName = params.counterpartName ?? "";
 
-  const [phase, setPhase]         = useState<Phase>("permission");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [joinData, setJoinData]   = useState<ClassroomJoinResponse | null>(null);
-  const [ending, setEnding]       = useState(false);
-  const [canAskPermissionAgain, setCanAskPermissionAgain] = useState(true);
-
-  // Tracks which layout mode the WebView is currently showing so the RN
-  // overlay can reposition itself and avoid covering the PIP strip.
-  const [boardMode, setBoardMode] = useState<BoardMode>("video");
+  const [phase,     setPhase]     = useState<Phase>("loading");
+  const [errorMsg,  setErrorMsg]  = useState("");
+  const [joinData,  setJoinData]  = useState<ClassroomJoinResponse | null>(null);
+  const [activeTab, setActiveTab] = useState<ClassroomTab>("live");
+  const [elapsed,   setElapsed]   = useState(0);
+  const [ending,    setEnding]    = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const leftRef = useRef(false);
-  const webViewRef = useRef<WebView>(null);
+  const { user } = useAuthStore();
+  const isTutorRole = user?.role === "tutor" || user?.role === "admin";
 
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
+  const navigateAway = useCallback(() => {
+    if (isTutorRole) router.replace("/(tutor)/sessions" as any);
+    else if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/bookings");
+  }, [isTutorRole]);
 
-  const isTutor = joinData?.role === "tutor" || joinData?.role === "admin";
+  // ── Join flow ────────────────────────────────────────────────────────────
 
-  // ── Step 1: camera + microphone permissions ───────────────────────────────
-
-  const ensurePermissions = useCallback(async () => {
-    const cam = cameraPermission?.granted
-      ? cameraPermission
-      : await requestCameraPermission();
-    const mic = microphonePermission?.granted
-      ? microphonePermission
-      : await requestMicrophonePermission();
-
-    const granted = !!(cam?.granted || mic?.granted);
-    setCanAskPermissionAgain(Boolean(cam?.canAskAgain || mic?.canAskAgain));
-    return granted;
-  }, [
-    cameraPermission,
-    microphonePermission,
-    requestCameraPermission,
-    requestMicrophonePermission,
-  ]);
-
-  // ── Step 2: request a LiveKit token ───────────────────────────────────────
-
-  const requestToken = useCallback(async () => {
+  const startJoin = useCallback(async () => {
+    if (!Number.isFinite(bookingId)) {
+      setErrorMsg("Invalid session link.");
+      setPhase("error");
+      return;
+    }
     setPhase("loading");
-    setErrorMessage("");
+    setErrorMsg("");
     try {
       const data = await joinClassroom(bookingId);
       setJoinData(data);
-      setPhase("connecting");
+      setPhase("live");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      setErrorMessage(
+      setErrorMsg(
         typeof detail === "string"
           ? detail
-          : "Could not join the session. Please try again."
+          : "Could not join the session. Please try again.",
       );
       setPhase("error");
     }
   }, [bookingId]);
 
-  const startJoinFlow = useCallback(async () => {
-    if (!Number.isFinite(bookingId)) {
-      setErrorMessage("This session link is invalid.");
-      setPhase("error");
-      return;
-    }
-    const granted = await ensurePermissions();
-    if (!granted) {
-      setPhase("permission");
-      return;
-    }
-    await requestToken();
-  }, [bookingId, ensurePermissions, requestToken]);
-
-  // Debug: Log the injection script when joinData changes
   useEffect(() => {
-    if (joinData) {
-      const injectionScript = buildClassroomInjection({
-        livekitUrl: joinData.livekit_url,
-        token: joinData.token,
-        displayName: joinData.display_name,
-        isTutor,
-      });
-      console.log('[Classroom] Injection script:', injectionScript);
-      console.log('[Classroom] Join data:', {
-        livekitUrl: joinData.livekit_url,
-        tokenLength: joinData.token?.length,
-        displayName: joinData.display_name,
-        isTutor,
-      });
-      
-      // Log permission status for debugging
-      console.log('[Classroom] Permission status:', {
-        camera: cameraPermission?.granted,
-        microphone: microphonePermission?.granted,
-        cameraCanAsk: cameraPermission?.canAskAgain,
-        microphoneCanAsk: microphonePermission?.canAskAgain,
-      });
-    }
-  }, [joinData, isTutor, cameraPermission, microphonePermission]);
-
-  useEffect(() => {
-    startJoinFlow();
-    // Best-effort: tell the backend we left if the screen unmounts without
-    // the user explicitly tapping Leave (e.g. swiping back).
+    startJoin();
     return () => {
-      if (!leftRef.current) {
-        leaveClassroom(bookingId).catch(() => undefined);
-      }
+      if (!leftRef.current) leaveClassroom(bookingId).catch(() => undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Leaving / ending ───────────────────────────────────────────────────────
+  // ── Session timer ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (phase !== "live") return;
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  const formatTime = (s: number) => {
+    const m   = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  // ── Leave / End ──────────────────────────────────────────────────────────
 
   const handleLeave = useCallback(() => {
     leftRef.current = true;
     leaveClassroom(bookingId).catch(() => undefined);
-    if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/bookings");
-  }, [bookingId]);
+    navigateAway();
+  }, [bookingId, navigateAway]);
 
   const handleEndSession = useCallback(() => {
     Alert.alert(
       "End session for everyone?",
-      "This will disconnect all participants and mark the session as completed.",
+      "This will disconnect all participants and mark the session completed.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -210,28 +168,18 @@ export default function ClassroomScreen() {
           style: "destructive",
           onPress: async () => {
             setEnding(true);
-            try {
-              leftRef.current = true;
-              await endClassroom(bookingId);
-              router.replace("/(tutor)/sessions" as any);
-            } catch (err: any) {
-              const detail = err?.response?.data?.detail;
-              Alert.alert(
-                "Couldn't end session",
-                typeof detail === "string" ? detail : "Please try again."
-              );
-            } finally {
-              setEnding(false);
-            }
+            leftRef.current = true;
+            try { await endClassroom(bookingId); } catch { /* best-effort */ }
+            router.replace("/(tutor)/sessions" as any);
           },
         },
-      ]
+      ],
     );
   }, [bookingId]);
 
-  // Android hardware back — treat like the Leave button.
+  // Android hardware back
   useEffect(() => {
-    if (phase !== "connecting" && phase !== "live") return;
+    if (phase !== "live") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       handleLeave();
       return true;
@@ -239,333 +187,388 @@ export default function ClassroomScreen() {
     return () => sub.remove();
   }, [phase, handleLeave]);
 
-  // ── WebView <-> RN messaging ───────────────────────────────────────────────
+  // ── Build the LiveKit Meet URL ────────────────────────────────────────────
 
-  const handleWebMessage = useCallback(
-    (event: WebViewMessageEvent) => {
-      try {
-        const msg = JSON.parse(event.nativeEvent.data);
+  const meetUrl = joinData
+    ? `https://meet.livekit.io/?liveKitUrl=${encodeURIComponent(joinData.livekit_url)}&token=${encodeURIComponent(joinData.token)}`
+    : null;
 
-        switch (msg.type) {
-          case "connected":
-            setPhase("live");
-            break;
+  // ── Render: loading ──────────────────────────────────────────────────────
 
-          case "leave":
-            handleLeave();
-            break;
+  if (phase === "loading") {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: "#0f172a" }}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+        <Text className="text-white/70 text-[14px] font-sans-medium mt-4">
+          Joining classroom…
+        </Text>
+      </View>
+    );
+  }
 
-          case "disconnected":
-            if (!leftRef.current) setPhase("ended");
-            break;
+  // ── Render: error ────────────────────────────────────────────────────────
 
-          case "error":
-            console.error('[WebView Error Message]', msg);
-            const errorDetails = msg.details ? ` (${msg.details})` : '';
-            setErrorMessage(msg.message || "The video connection was lost." + errorDetails);
-            setPhase("error");
-            break;
+  if (phase === "error") {
+    return (
+      <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: "#0f172a" }}>
+        <View
+          className="w-16 h-16 rounded-full items-center justify-center mb-5"
+          style={{ backgroundColor: "rgba(239,68,68,0.15)" }}
+        >
+          <Ionicons name="videocam-off-outline" size={30} color="#f87171" />
+        </View>
+        <Text className="text-white text-[17px] font-sans-bold mb-2 text-center">
+          Could not join
+        </Text>
+        <Text className="text-white/60 text-[13px] font-sans-medium text-center mb-8">
+          {errorMsg}
+        </Text>
+        <Pressable
+          onPress={startJoin}
+          className="rounded-full px-8 py-3 mb-3"
+          style={{ backgroundColor: Colors.teal }}
+        >
+          <Text className="text-white font-sans-bold text-[14px]">Try again</Text>
+        </Pressable>
+        <Pressable onPress={navigateAway}>
+          <Text className="text-white/50 text-[13px] font-sans-medium">Go back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
-          case "warning":
-            console.warn('[WebView Warning Message]', msg);
-            // Show warning but don't change phase
-            // This allows the session to continue even if camera/mic fails
-            Alert.alert("Media Warning", msg.message || "Camera or microphone access issue");
-            break;
+  // ── Render: ended ────────────────────────────────────────────────────────
 
-          case "request_config":
-            console.log('[WebView] Config requested via postMessage');
-            if (joinData && webViewRef.current) {
-              const config = {
-                livekitUrl: joinData.livekit_url,
-                token: joinData.token,
-                displayName: joinData.display_name,
-                isTutor,
-              };
-              const configMessage = JSON.stringify({
-                type: 'config',
-                config: config
-              });
-              console.log('[WebView] Sending config:', configMessage);
-              webViewRef.current.postMessage(configMessage);
-            }
-            break;
+  if (phase === "ended") {
+    return (
+      <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: "#0f172a" }}>
+        <Ionicons name="checkmark-circle" size={56} color={Colors.teal} />
+        <Text className="text-white text-[20px] font-sans-bold mt-5 mb-2">
+          Session ended
+        </Text>
+        <Text className="text-white/60 text-[13px] font-sans-medium text-center mb-8">
+          The session has been completed. Your attendance has been recorded.
+        </Text>
+        <Pressable
+          onPress={navigateAway}
+          className="rounded-full px-8 py-3"
+          style={{ backgroundColor: Colors.teal }}
+        >
+          <Text className="text-white font-sans-bold text-[14px]">
+            {isTutorRole ? "View sessions" : "View bookings"}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
 
-          // Whiteboard layout mode changed inside the WebView.
-          // Reposition the RN overlay so it clears the PIP strip in board mode.
-          case "mode":
-            setBoardMode(msg.mode === "board" ? "board" : "video");
-            break;
-
-          // participantCount is informational only — no RN state needed.
-          default:
-            break;
-        }
-      } catch {
-        // Ignore malformed messages.
-      }
-    },
-    [handleLeave, joinData, isTutor]
-  );
-
-  const statusBarHeight =
-    Platform.OS === "android" ? (StatusBar.currentHeight ?? 24) : 0;
-
-  // In board mode the WebView renders its own 110 px PIP strip at the top.
-  // Offset the RN overlay by that amount so the two layers don't collide.
-  const liveOverlayTop = boardMode === "board" ? PIP_STRIP_HEIGHT : 0;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render: live ─────────────────────────────────────────────────────────
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.deepTeal }}>
-      <View style={{ height: statusBarHeight }} />
+    <View className="flex-1" style={{ backgroundColor: "#0f172a" }}>
 
-      {/* Header — only shown before/after the call fills the screen */}
-      {phase !== "live" && (
-        <SafeAreaView edges={["top"]} style={{ backgroundColor: Colors.deepTeal }}>
-          <View className="flex-row items-center justify-between px-4 pt-2 pb-3">
-            <Pressable
-              onPress={handleLeave}
-              hitSlop={10}
-              className="w-9 h-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-            >
-              <Ionicons name="chevron-back" size={20} color={Colors.white} />
-            </Pressable>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#0f172a" }}>
+        <View className="flex-row items-center px-4 py-2">
 
-            <View className="flex-1 items-center">
-              <Text className="text-[14px] font-sans-bold text-white" numberOfLines={1}>
+          {/* Live dot + title */}
+          <View className="flex-row items-center gap-2 flex-1">
+            <View className="w-2 h-2 rounded-full bg-teal" />
+            <View>
+              <Text className="text-[13px] font-sans-bold text-white" numberOfLines={1}>
                 {title}
               </Text>
               {!!counterpartName && (
-                <Text className="text-[11px] font-sans-medium text-white/60" numberOfLines={1}>
+                <Text className="text-[11px] font-sans-medium text-white/50">
                   with {counterpartName}
                 </Text>
               )}
             </View>
-
-            <View style={{ width: 36 }} />
           </View>
-        </SafeAreaView>
-      )}
 
-      {/* Floating header while live — overlays the WebView.
-          In board mode it sits below the PIP strip so video tiles stay visible. */}
-      {phase === "live" && (
-        <SafeAreaView
-          edges={["top"]}
-          style={{
-            position: "absolute",
-            top: liveOverlayTop,
-            left: 0,
-            right: 0,
-            zIndex: 20,
-            // Transparent so the WebView content shows through.
-            backgroundColor: "transparent",
-          }}
-        >
-          <View className="flex-row items-center justify-between px-4 pt-2">
-            {/* Session title pill — always visible in live mode */}
-            <View
-              className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-            >
-              {/* Live indicator dot */}
-              <View className="w-2 h-2 rounded-full bg-teal" />
-              <Text className="text-[12px] font-sans-bold text-white" numberOfLines={1}>
-                {boardMode === "board" ? "Whiteboard" : title}
-              </Text>
-            </View>
-
-            {/* End Session — tutor / admin only */}
-            {isTutor && (
-              <Pressable
-                onPress={handleEndSession}
-                disabled={ending}
-                className="rounded-full px-3 py-1.5 flex-row items-center gap-1"
-                style={{ backgroundColor: "rgba(220,38,38,0.85)" }}
-              >
-                {ending ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <Ionicons name="stop-circle-outline" size={14} color={Colors.white} />
-                )}
-                <Text className="text-[11px] font-sans-bold text-white">End Session</Text>
-              </Pressable>
-            )}
-          </View>
-        </SafeAreaView>
-      )}
-
-      {/* ── Body ─────────────────────────────────────────────────────────── */}
-
-      {phase === "permission" && (
-        <View className="flex-1 items-center justify-center gap-4 px-8">
+          {/* Timer */}
           <View
-            className="w-16 h-16 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(142,238,208,0.15)" }}
+            className="rounded-full px-3 py-1 mr-3"
+            style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
           >
-            <Ionicons name="videocam-outline" size={30} color={Colors.softMint} />
+            <Text className="text-[12px] font-sans-bold text-white/70">
+              {formatTime(elapsed)}
+            </Text>
           </View>
-          <Text className="text-[15px] font-sans-bold text-white text-center">
-            Camera & microphone access needed
-          </Text>
-          <Text className="text-[13px] font-sans-medium text-white/70 text-center">
-            Didaskey needs access to your camera and microphone so your tutor
-            or student can see and hear you during the session.
-          </Text>
-          <View className="flex-row gap-3 mt-2">
-            <Pressable onPress={startJoinFlow} className="rounded-xl bg-teal px-5 py-3">
-              <Text className="text-[13px] font-sans-bold text-white">
-                {canAskPermissionAgain ? "Grant Access" : "Try Again"}
+
+          {/* End (tutor) or Leave (student) */}
+          {isTutorRole ? (
+            <Pressable
+              onPress={handleEndSession}
+              disabled={ending}
+              className="rounded-full px-3 py-1.5"
+              style={{ backgroundColor: "rgba(220,38,38,0.85)" }}
+            >
+              {ending
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text className="text-[12px] font-sans-bold text-white">End</Text>
+              }
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleLeave}
+              className="rounded-full px-3 py-1.5"
+              style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+            >
+              <Text className="text-[12px] font-sans-bold text-white">Leave</Text>
+            </Pressable>
+          )}
+        </View>
+      </SafeAreaView>
+
+      {/* ── Tab bar ─────────────────────────────────────────────────── */}
+      <View
+        className="flex-row border-b"
+        style={{ borderColor: "rgba(255,255,255,0.08)", backgroundColor: "#0f172a" }}
+      >
+        {(
+          [
+            { id: "live",      icon: "videocam",              label: "Live"      },
+            { id: "resources", icon: "folder-open",           label: "Resources" },
+            { id: "chat",      icon: "chatbubble-ellipses",   label: "Chat"      },
+          ] as { id: ClassroomTab; icon: string; label: string }[]
+        ).map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setActiveTab(tab.id)}
+              className="flex-1 items-center py-2.5"
+              style={{
+                borderBottomWidth: 2,
+                borderBottomColor: active ? Colors.teal : "transparent",
+              }}
+            >
+              <Ionicons
+                name={tab.icon as any}
+                size={16}
+                color={active ? Colors.teal : "rgba(255,255,255,0.35)"}
+              />
+              <Text
+                className="text-[10px] font-sans-bold mt-0.5"
+                style={{ color: active ? Colors.teal : "rgba(255,255,255,0.35)" }}
+              >
+                {tab.label}
               </Text>
             </Pressable>
-            {!canAskPermissionAgain && (
-              <Pressable
-                onPress={() => Linking.openSettings()}
-                className="rounded-xl border border-white/30 px-5 py-3"
-              >
-                <Text className="text-[13px] font-sans-bold text-white">Open Settings</Text>
-              </Pressable>
-            )}
-          </View>
-          <Pressable onPress={requestToken} className="mt-1">
-            <Text className="text-[12px] font-sans-semibold text-white/60 underline">
-              Continue without camera/mic
-            </Text>
-          </Pressable>
-        </View>
-      )}
+          );
+        })}
+      </View>
 
-      {phase === "loading" && (
-        <View className="flex-1 items-center justify-center gap-3 px-8">
-          <ActivityIndicator size="large" color={Colors.softMint} />
-          <Text className="text-[13px] font-sans-medium text-white/70 text-center">
-            Preparing your classroom…
+      {/* ── Content area ────────────────────────────────────────────── */}
+      <View className="flex-1">
+
+        {/* LiveKit Meet WebView — always mounted, hidden when another tab is active */}
+        <View style={{ flex: activeTab === "live" ? 1 : 0, overflow: "hidden" }}>
+          {meetUrl && (
+            <WebView
+              source={{ uri: meetUrl }}
+              style={{ flex: 1, backgroundColor: "#0f172a" }}
+              // Allow camera + mic inside the WebView
+              mediaCapturePermissionGrantType="grant"
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              // Android: hardware layer required for video compositing
+              androidLayerType="hardware"
+              // Prevent the WebView's own back-navigation from interfering
+              onShouldStartLoadWithRequest={() => true}
+              // Show a spinner until the page loads
+              startInLoadingState
+              renderLoading={() => (
+                <View
+                  style={{
+                    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                    alignItems: "center", justifyContent: "center",
+                    backgroundColor: "#0f172a",
+                  }}
+                >
+                  <ActivityIndicator color={Colors.teal} />
+                  <Text style={{ color: "rgba(255,255,255,0.5)", marginTop: 12, fontSize: 13 }}>
+                    Starting video…
+                  </Text>
+                </View>
+              )}
+            />
+          )}
+        </View>
+
+        {activeTab === "resources" && (
+          <ResourcesTab isTutor={isTutorRole} />
+        )}
+
+        {activeTab === "chat" && (
+          <ChatTab
+            messages={chatMessages}
+            onSend={(msg) => setChatMessages((prev) => [...prev, msg])}
+            localDisplayName={user ? `${user.first_name} ${user.last_name}`.trim() : "You"}
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ── Resources tab ─────────────────────────────────────────────────────────────
+
+function ResourcesTab({ isTutor }: { isTutor: boolean }) {
+  return (
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ padding: 20 }}
+    >
+      <Text className="text-[11px] font-sans-bold text-white/40 uppercase mb-4">
+        Session materials
+      </Text>
+
+      {isTutor ? (
+        <>
+          <ResourceRow icon="document-text-outline" name="Session notes"  sub="Write notes for this session" />
+          <ResourceRow icon="attach"                name="Share file"     sub="PDF, image, or document"      />
+          <ResourceRow icon="link"                  name="Share link"     sub="Website or reference"         />
+        </>
+      ) : (
+        <View className="items-center py-12">
+          <Ionicons name="folder-open-outline" size={40} color="rgba(255,255,255,0.2)" />
+          <Text className="text-white/40 text-[13px] font-sans-medium mt-3 text-center">
+            No materials shared yet.{"\n"}Your tutor can share files and notes here.
           </Text>
         </View>
       )}
+    </ScrollView>
+  );
+}
 
-      {(phase === "connecting" || phase === "live") && joinData && (
-        <WebView
-          ref={webViewRef}
-          // ── Source: real HTTP origin, not a data: URI ───────────────────
-          // getUserMedia is blocked on data: origins on both iOS and Android.
-          // Loading the shell from an http:// URL gives the page a real
-          // origin so the browser engine grants camera/mic access.
-          source={{ uri: classroomShellUrl(SERVER_URL) }}
-          // ── Config injection ────────────────────────────────────────────
-          // Runs before ANY page script — window.__CLS is set before the
-          // classroom boot() function reads it.
-          injectedJavaScriptBeforeContentLoaded={buildClassroomInjection({
-            livekitUrl:  joinData.livekit_url,
-            token:       joinData.token,
-            displayName: joinData.display_name,
-            isTutor,
-          })}
-          onMessage={handleWebMessage}
-          // ── Debug console logs ──────────────────────────────────────────
-          onConsoleMessage={(event) => {
-            const message = event.nativeEvent.message;
-            console.log('[WebView Console]', message);
-            
-            // Log critical errors to help debugging
-            if (message.includes('getUserMedia') || message.includes('permission') || message.includes('denied')) {
-              console.error('[WebView Permission Issue]', message);
-            }
-            if (message.includes('Connection failed') || message.includes('Failed to connect')) {
-              console.error('[WebView Connection Issue]', message);
-            }
-            if (message.includes('Config not ready') && message.includes('retrying')) {
-              console.warn('[WebView Config Issue]', message);
-            }
-          }}
-          // ── Error handling ──────────────────────────────────────────────
-          onError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.error('[WebView Error]', nativeEvent);
-            setErrorMessage('Failed to load classroom. Please check your connection.');
-            setPhase('error');
-          }}
-          onHttpError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.error('[WebView HTTP Error]', nativeEvent.statusCode, nativeEvent.url);
-          }}
-          // ── Loading events for debugging ────────────────────────────────
-          onLoadStart={() => {
-            console.log('[WebView] Load start');
-          }}
-          onLoadEnd={() => {
-            console.log('[WebView] Load end');
-          }}
-          onLoadProgress={({ nativeEvent }) => {
-            console.log('[WebView] Load progress:', nativeEvent.progress);
-          }}
-          // ── Media permissions ───────────────────────────────────────────
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          // iOS 15+: auto-grant camera/mic permission requests from the page.
-          mediaCapturePermissionGrantType="grant"
-          // Android: grant camera/mic permission requests from the WebView
-          // renderer. Without this the WebView silently denies getUserMedia
-          // even though the host app holds the permissions.
-          onPermissionRequest={(request) => {
-            console.log('[WebView] Permission request:', request.nativeEvent.resources);
-            request.grant(request.resources);
-          }}
-          // ── JS / DOM ────────────────────────────────────────────────────
-          javaScriptEnabled
-          domStorageEnabled
-          originWhitelist={["http://*", "https://*"]}
-          // ── Rendering ───────────────────────────────────────────────────
-          // Hardware acceleration is required for WebRTC video compositing.
-          androidLayerType="hardware"
-          style={{ flex: 1, backgroundColor: Colors.deepTeal }}
+function ResourceRow({ icon, name, sub }: { icon: string; name: string; sub: string }) {
+  return (
+    <Pressable
+      className="flex-row items-center gap-3 rounded-xl px-4 py-3 mb-3"
+      style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+    >
+      <View
+        className="w-10 h-10 rounded-xl items-center justify-center"
+        style={{ backgroundColor: "rgba(13,148,136,0.2)" }}
+      >
+        <Ionicons name={icon as any} size={18} color={Colors.teal} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-white text-[13px] font-sans-semibold">{name}</Text>
+        <Text className="text-white/40 text-[11px] font-sans-medium">{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.2)" />
+    </Pressable>
+  );
+}
+
+// ── Chat tab ──────────────────────────────────────────────────────────────────
+
+function ChatTab({
+  messages,
+  onSend,
+  localDisplayName,
+}: {
+  messages: ChatMessage[];
+  onSend: (msg: ChatMessage) => void;
+  localDisplayName: string;
+}) {
+  const [draft, setDraft] = useState("");
+  const listRef = useRef<FlatList>(null);
+
+  const sendMessage = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    onSend({
+      id:        String(Date.now()),
+      sender:    localDisplayName,
+      text,
+      timestamp: new Date(),
+      isLocal:   true,
+    });
+    setDraft("");
+  }, [draft, localDisplayName, onSend]);
+
+  useEffect(() => {
+    if (messages.length > 0) listRef.current?.scrollToEnd({ animated: true });
+  }, [messages]);
+
+  return (
+    <KeyboardAvoidingView
+      className="flex-1"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={120}
+    >
+      {messages.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <Ionicons name="chatbubble-ellipses-outline" size={40} color="rgba(255,255,255,0.15)" />
+          <Text className="text-white/30 text-[13px] font-sans-medium mt-3">
+            No messages yet
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={{ padding: 16, gap: 10 }}
+          renderItem={({ item }) => (
+            <View
+              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${item.isLocal ? "self-end" : "self-start"}`}
+              style={{ backgroundColor: item.isLocal ? Colors.teal : "rgba(255,255,255,0.1)" }}
+            >
+              {!item.isLocal && (
+                <Text className="text-[10px] font-sans-bold mb-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  {item.sender}
+                </Text>
+              )}
+              <Text className="text-white text-[13px] font-sans-medium">{item.text}</Text>
+              <Text className="text-[10px] font-sans-medium mt-1 text-right" style={{ color: "rgba(255,255,255,0.45)" }}>
+                {item.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </Text>
+            </View>
+          )}
         />
       )}
 
-      {phase === "error" && (
-        <View className="flex-1 items-center justify-center gap-4 px-8">
-          <View
-            className="w-16 h-16 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(220,38,38,0.15)" }}
-          >
-            <Ionicons name="alert-circle-outline" size={30} color={Colors.destructive} />
-          </View>
-          <Text className="text-[15px] font-sans-bold text-white text-center">
-            {errorMessage || "Something went wrong."}
-          </Text>
-          <View className="flex-row gap-3 mt-2">
-            <Pressable onPress={requestToken} className="rounded-xl bg-teal px-5 py-3">
-              <Text className="text-[13px] font-sans-bold text-white">Try Again</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleLeave}
-              className="rounded-xl border border-white/30 px-5 py-3"
-            >
-              <Text className="text-[13px] font-sans-bold text-white">Go Back</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
-      {phase === "ended" && (
-        <View className="flex-1 items-center justify-center gap-4 px-8">
-          <View
-            className="w-16 h-16 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(142,238,208,0.15)" }}
-          >
-            <Ionicons name="checkmark-circle-outline" size={32} color={Colors.softMint} />
-          </View>
-          <Text className="text-[15px] font-sans-bold text-white text-center">
-            The session has ended.
-          </Text>
-          <Pressable onPress={handleLeave} className="rounded-xl bg-teal px-6 py-3 mt-2">
-            <Text className="text-[13px] font-sans-bold text-white">Done</Text>
-          </Pressable>
-        </View>
-      )}
-    </View>
+      <View
+        className="flex-row items-end gap-2 px-4 py-3"
+        style={{ borderTopWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}
+      >
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Type a message…"
+          placeholderTextColor="rgba(255,255,255,0.25)"
+          multiline
+          style={{
+            flex: 1,
+            color: "#fff",
+            fontSize: 14,
+            backgroundColor: "rgba(255,255,255,0.08)",
+            borderRadius: 20,
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            maxHeight: 100,
+          }}
+          onSubmitEditing={sendMessage}
+          returnKeyType="send"
+          blurOnSubmit
+        />
+        <Pressable
+          onPress={sendMessage}
+          className="w-10 h-10 rounded-full items-center justify-center"
+          style={{ backgroundColor: draft.trim() ? Colors.teal : "rgba(255,255,255,0.08)" }}
+        >
+          <Ionicons
+            name="send"
+            size={16}
+            color={draft.trim() ? Colors.white : "rgba(255,255,255,0.3)"}
+          />
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }

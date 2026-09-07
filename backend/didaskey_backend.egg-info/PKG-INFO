@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: didaskey-backend
+Version: 0.1.0
+Summary: Didaskey learning marketplace API
+Requires-Python: >=3.12
+Requires-Dist: fastapi<1.0,>=0.115
+Requires-Dist: uvicorn[standard]<1.0,>=0.30
+Requires-Dist: pydantic-settings<3.0,>=2.6
+Requires-Dist: sqlalchemy[asyncio]<3.0,>=2.0
+Requires-Dist: asyncpg<1.0,>=0.30
+Requires-Dist: aiosqlite<1.0,>=0.20
+Requires-Dist: alembic<2.0,>=1.14
+Requires-Dist: python-jose[cryptography]<4.0,>=3.3
+Requires-Dist: passlib[bcrypt]<2.0,>=1.7
+Requires-Dist: email-validator<3.0,>=2.2
+Requires-Dist: httpx<1.0,>=0.28
+Requires-Dist: redis<6.0,>=5.2
+Requires-Dist: agora-token-builder<2.0,>=1.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
+Requires-Dist: httpx>=0.28; extra == "dev"
+Requires-Dist: ruff>=0.8; extra == "dev"

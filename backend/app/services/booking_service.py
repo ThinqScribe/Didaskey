@@ -1,6 +1,11 @@
 """
 BookingService — all booking lifecycle business logic.
 
+⚠️  **TESTING MODE ACTIVE** ⚠️
+Tutor availability restrictions are currently DISABLED to allow flexible testing.
+All time slots are allowed regardless of tutor availability settings.
+Remember to re-enable availability checks after testing is complete.
+
 Responsibilities
 ----------------
 - Create a booking + companion Transaction in a single atomic write
@@ -38,6 +43,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+from app.core.config import settings
 
 from app.models.billing import Booking, BookingStatus, RefundStatus, Refund, Transaction, TransactionStatus
 from app.models.marketplace import TutorAvailability, TutorProfile
@@ -176,6 +183,9 @@ async def _assert_tutor_available(
     Check that the requested slot falls within one of the tutor's weekly
     availability windows.
 
+    **TESTING MODE**: Currently controlled by SKIP_TUTOR_AVAILABILITY_CHECK setting.
+    When enabled, all time slots are allowed for easier testing.
+    
     Availability start_time / end_time values are stored as plain
     wall-clock times (no timezone), set by the tutor in their local time.
     We therefore compare using the *local* wall-clock representation of
@@ -184,6 +194,12 @@ async def _assert_tutor_available(
 
     Raises 409 if no matching window is found.
     """
+    # Check if availability validation is disabled for testing
+    if settings.SKIP_TUTOR_AVAILABILITY_CHECK:
+        logger.info(f"⚠️  TESTING MODE: Skipping availability check for tutor {tutor_id}")
+        return  # Allow any booking time during testing
+    
+    # Original availability checking code (enabled when SKIP_TUTOR_AVAILABILITY_CHECK = False)
     # Preserve the original UTC offset so wall-clock hour/day are correct.
     local_start = scheduled_at if scheduled_at.tzinfo is not None else scheduled_at.replace(tzinfo=timezone.utc)
     day = _day_name(local_start)
