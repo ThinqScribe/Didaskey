@@ -37,6 +37,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Older development servers used create_all without advancing Alembic.
+    # Adopt only a complete, structurally compatible pair of tables.
+    inspector = sa.inspect(op.get_bind())
+    tables = set(inspector.get_table_names())
+    if {"classrooms", "classroom_participants"} & tables:
+        expected = {
+            "classrooms": {"id", "booking_id", "room_name", "status", "started_at", "ended_at", "recording_url", "created_at", "updated_at"},
+            "classroom_participants": {"id", "classroom_id", "user_id", "role", "joined_at", "left_at"},
+        }
+        for table, columns in expected.items():
+            if table not in tables or {c["name"] for c in inspector.get_columns(table)} != columns:
+                raise RuntimeError(f"Existing {table} schema requires manual reconciliation; no tables were overwritten")
+            if inspector.get_pk_constraint(table)["constrained_columns"] != ["id"]:
+                raise RuntimeError(f"Existing {table} primary key is incompatible")
+        unique = {tuple(c["column_names"]) for c in inspector.get_unique_constraints("classrooms")}
+        unique |= {tuple(i["column_names"]) for i in inspector.get_indexes("classrooms") if i["unique"]}
+        if not {("booking_id",), ("room_name",)} <= unique:
+            raise RuntimeError("Existing classroom uniqueness constraints require reconciliation")
+        for table, expected_fks in {"classrooms": {("booking_id", "bookings", "id")}, "classroom_participants": {("classroom_id", "classrooms", "id"), ("user_id", "users", "id")}}.items():
+            actual = {(f["constrained_columns"][0], f["referred_table"], f["referred_columns"][0]) for f in inspector.get_foreign_keys(table)}
+            if not expected_fks <= actual:
+                raise RuntimeError(f"Existing {table} foreign keys require reconciliation")
+        return
 
     # ── classrooms ────────────────────────────────────────────────────────────
     op.create_table(

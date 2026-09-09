@@ -672,6 +672,13 @@ async def create_review(
     400  — student attempts to review themselves (future-proofing)
     409  — student already has a review for this tutor
     """
+    from app.models.billing import Booking
+    eligible = await db.scalar(select(Booking.id).where(
+        Booking.student_id == student.id, Booking.tutor_id == payload.tutor_id,
+        Booking.status == "completed",
+    ).limit(1))
+    if student.role != UserRole.STUDENT or eligible is None:
+        raise _forbidden("Complete a session with this tutor before leaving a review")
     profile = await db.get(TutorProfile, payload.tutor_id)
     if profile is None:
         raise _not_found("TutorProfile", payload.tutor_id)

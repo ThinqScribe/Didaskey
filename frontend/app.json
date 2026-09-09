@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Didaskey",
+    "slug": "didaskey",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "didaskey",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -31,8 +31,8 @@
       [
         "@config-plugins/react-native-webrtc",
         {
-          "cameraPermission": "Tuterra needs camera access for live tutoring sessions.",
-          "microphonePermission": "Tuterra needs microphone access for live tutoring sessions."
+          "cameraPermission": "Didaskey needs camera access for live tutoring sessions.",
+          "microphonePermission": "Didaskey needs microphone access for live tutoring sessions."
         }
       ],
       [

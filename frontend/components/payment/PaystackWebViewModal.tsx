@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -13,6 +14,7 @@ import { WebView, type WebViewNavigation } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Colors } from "@/constants";
+import { Action, ui } from "@/components/ui/Workspace";
 
 interface Props {
   url: string;
@@ -68,6 +70,7 @@ export default function PaystackWebViewModal({
     (nav: WebViewNavigation) => {
       if (handled) return;
       const navUrl = nav.url ?? "";
+      const isCallback = (() => { try { return new URL(navUrl).pathname === "/payment/callback"; } catch { return false; } })();
 
       // ── Ignore the initial load to the checkout page itself ───────────────
       if (!initialLoadDone.current) {
@@ -88,7 +91,7 @@ export default function PaystackWebViewModal({
       //
       // 2. Paystack's own /close URL — fired in some Paystack popup flows.
       //
-      const isOurCallback = navUrl.includes("didaskey.app/payment/callback");
+      const isOurCallback = isCallback;
       const isPaystackClose = navUrl.includes("paystack.com/close");
 
       if (isOurCallback || isPaystackClose) {
@@ -165,7 +168,7 @@ export default function PaystackWebViewModal({
               flex: 1,
               textAlign: "center",
               fontSize: 15,
-              fontFamily: "Inter_700Bold",
+              fontFamily: "sans-bold",
               color: Colors.charcoal,
             }}
           >
@@ -176,7 +179,7 @@ export default function PaystackWebViewModal({
 
         {/* WebView */}
         <View style={{ flex: 1 }}>
-          {webLoading && (
+          {webLoading && Platform.OS !== "web" && (
             <View
               style={{
                 position: "absolute",
@@ -195,7 +198,7 @@ export default function PaystackWebViewModal({
                 style={{
                   marginTop: 12,
                   fontSize: 13,
-                  fontFamily: "Inter_500Medium",
+                  fontFamily: "sans-medium",
                   color: Colors.mutedForeground,
                 }}
               >
@@ -204,12 +207,12 @@ export default function PaystackWebViewModal({
             </View>
           )}
 
-          <WebView
+          {Platform.OS === "web" ? <View style={{ padding: 24, gap: 18 }}><Text style={ui.heading}>Complete your secure payment</Text><Text style={ui.text}>Open Paystack in a new tab, complete checkout, then return here to check confirmation.</Text><Action label="Open Paystack checkout" onPress={() => { void Linking.openURL(url); }} /><Action label="Check payment confirmation" secondary onPress={onSuccess} /></View> : <WebView
             source={{ uri: url }}
             onNavigationStateChange={handleNavChange}
             onShouldStartLoadWithRequest={(req) => {
               // Intercept our callback URL — handle it in JS, don't load it.
-              if (req.url.includes("didaskey.app/payment/")) {
+              if ((() => { try { return ["/payment/callback", "/payment/cancel"].includes(new URL(req.url).pathname); } catch { return false; } })()) {
                 if (!handled) {
                   const isSuccess = req.url.includes("/callback");
                   setHandled(true);
@@ -226,7 +229,7 @@ export default function PaystackWebViewModal({
             domStorageEnabled
             startInLoadingState={false}
             style={{ flex: 1 }}
-          />
+          />}
 
           {/* Fallback: user taps this once they know they've paid */}
           {showContinueButton && !handled && (
@@ -258,10 +261,10 @@ export default function PaystackWebViewModal({
                   style={{
                     color: Colors.white,
                     fontSize: 15,
-                    fontFamily: "Inter_700Bold",
+                    fontFamily: "sans-bold",
                   }}
                 >
-                  I've Paid · Continue
+                  I&apos;ve Paid · Continue
                 </Text>
               </Pressable>
             </View>

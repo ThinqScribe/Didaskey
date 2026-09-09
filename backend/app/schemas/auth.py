@@ -3,8 +3,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, mo
 
 
 def _validate_password(value: str) -> str:
-    if not 8 <= len(value) <= 72:
-        raise ValueError("Password must be between 8 and 72 characters")
+    if len(value) < 8 or len(value.encode("utf-8")) > 72:
+        raise ValueError("Password must have at least 8 characters and at most 72 UTF-8 bytes")
     return value
 
 class LoginRequest(BaseModel):
@@ -47,6 +47,10 @@ class SignupRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_education_level(self) -> "SignupRequest":
+        if self.role == UserRole.PARENT:
+            raise ValueError("Didaskey supports student and tutor accounts only")
+        if self.education_level in (EducationLevel.UNDERGRADUATE, EducationLevel.POSTGRADUATE):
+            raise ValueError("Didaskey is for pre-varsity learners")
         if self.role == UserRole.STUDENT and self.education_level is None:
             raise ValueError("Education level is required for student accounts")
         return self
@@ -95,4 +99,3 @@ class VerifyEmailRequest(BaseModel):
 class MessageResponse(BaseModel):
     message: str
     
-

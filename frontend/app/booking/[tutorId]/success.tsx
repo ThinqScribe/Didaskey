@@ -11,7 +11,7 @@
  *  - "Add to Calendar"   → placeholder (calendar integration future scope)
  */
 
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -66,7 +66,7 @@ export default function SuccessScreen() {
 
   // Booking ID display: zero-padded to look like "TUT12345678"
   const bookingRef = params.bookingId
-    ? `TUT${params.bookingId.padStart(8, "0")}`
+    ? `DID${params.bookingId.padStart(8, "0")}`
     : params.reference?.slice(0, 12).toUpperCase() ?? "—";
 
   return (
@@ -156,15 +156,14 @@ export default function SuccessScreen() {
 
           <Pressable
             onPress={() => {
-              // Calendar integration — future scope
-              router.replace("/(tabs)/bookings");
+              void Share.share({ message: `Didaskey lesson: ${params.subjectName || "Tutoring"} with ${params.displayName}. ${dateLabel}, ${timeLabel}. Booking ${bookingRef}.` }).catch(() => undefined);
             }}
             className="rounded-xl border border-border bg-white items-center py-4 active:opacity-80"
           >
             <View className="flex-row items-center gap-2">
               <Ionicons name="calendar-outline" size={16} color={Colors.deepTeal} />
               <Text className="text-[15px] font-sans-semibold text-charcoal">
-                Add to Calendar
+                Share session details
               </Text>
             </View>
           </Pressable>

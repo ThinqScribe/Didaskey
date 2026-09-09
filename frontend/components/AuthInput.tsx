@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import clsx from "clsx";
+import { clsx } from "clsx";
 
 interface AuthInputProps extends TextInputProps {
   error?: string;

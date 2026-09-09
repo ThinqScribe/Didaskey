@@ -2,13 +2,15 @@
  * Booking Step 1 + 2 — Session Type & Schedule
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, Spacing } from "@/constants";
+import { apiClient } from "@/lib/api/client";
+import { ErrorNotice } from "@/components/ui/Workspace";
 import type { AvailabilitySlot, TeachingMode, TutorSubjectItem } from "@/lib/api/tutors";
 import type { SessionFormat } from "@/lib/api/bookings";
 import { estimateAmount, formatCurrency } from "@/lib/api/bookings";
@@ -18,7 +20,7 @@ import { estimateAmount, formatCurrency } from "@/lib/api/bookings";
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DURATIONS = [30, 60, 90, 120] as const;
-const PLATFORM_FEE = 3.5;
+const PLATFORM_FEE = 0;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -47,18 +49,7 @@ function generateSlots(start: string, end: string): string[] {
  * Return the device's local timezone abbreviation for display, e.g. "WAT", "GMT", "EST".
  * Falls back to the numeric offset ("UTC+1") if the Intl API can't resolve a short name.
  */
-function localTimezoneLabel(): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date());
-    const tz = parts.find((p) => p.type === "timeZoneName");
-    return tz?.value ?? "local";
-  } catch {
-    const offsetMins = -new Date().getTimezoneOffset();
-    const sign = offsetMins >= 0 ? "+" : "-";
-    const abs = Math.abs(offsetMins);
-    return `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, "0")}` : ""}`;
-  }
-}
+function localTimezoneLabel(): string { return "WAT · Africa/Lagos"; }
 
 /** Returns all days in a given month as a grid (with leading/trailing nulls to align to Sun). */
 function buildMonthGrid(year: number, month: number): (Date | null)[] {
@@ -83,22 +74,8 @@ function buildMonthGrid(year: number, month: number): (Date | null)[] {
  * causing a false "tutor not available" 409.
  */
 function buildScheduledAtFromSelection(date: Date, timeStr: string): string {
-  const [h, m] = timeStr.split(":").map(Number);
-  const d = new Date(date);
-  d.setHours(h, m, 0, 0);
-
-  // Offset in minutes — negative means ahead of UTC (e.g. WAT = -60)
-  const offsetMins = -d.getTimezoneOffset();
-  const sign = offsetMins >= 0 ? "+" : "-";
-  const absOffset = Math.abs(offsetMins);
-  const oh = String(Math.floor(absOffset / 60)).padStart(2, "0");
-  const om = String(absOffset % 60).padStart(2, "0");
-
   const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:00${sign}${oh}:${om}`
-  );
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${timeStr}+01:00`;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -266,10 +243,16 @@ export default function SlotScreen() {
 
   // ── Time slots ──────────────────────────────────────────────────────────────
 
-  const availableTimeSlots = useMemo(() => {
-    if (!selectedDate) return [];
-    return getSlotsForDate(selectedDate);
-  }, [selectedDate, getSlotsForDate]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [slotsError, setSlotsError] = useState("");
+  useEffect(() => {
+    setSelectedTime(null); setAvailableTimeSlots([]); setSlotsError("");
+    if (!selectedDate) return;
+    let active = true;
+    const day = [selectedDate.getFullYear(), String(selectedDate.getMonth() + 1).padStart(2, "0"), String(selectedDate.getDate()).padStart(2, "0")].join("-");
+    apiClient.get(`/tutors/${tutorId}/slots`, { params: { day, duration } }).then(({ data }) => { if (active) setAvailableTimeSlots(data.slots); }).catch(() => { if (active) setSlotsError("Could not load available times. Select the date again to retry."); });
+    return () => { active = false; };
+  }, [selectedDate, duration, tutorId]);
 
   // ── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -334,6 +317,7 @@ export default function SlotScreen() {
       </SafeAreaView>
 
       {/* Scrollable content */}
+      {!!slotsError && <ErrorNotice message={slotsError} />}
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
@@ -393,7 +377,7 @@ export default function SlotScreen() {
               opacity: step === 2 && !canProceedStep2 ? 0.45 : 1,
             }}
           >
-            <Text style={{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" }}>
+            <Text style={{ fontSize: 15, fontFamily: "sans-bold", color: "#fff" }}>
               Continue
             </Text>
           </Pressable>
@@ -595,7 +579,7 @@ function Step2({
       <Text className="font-sans-semibold" style={{ fontSize: 20, color: Colors.charcoal, marginBottom: 4 }}>
         Select Date &amp; Time
       </Text>
-      <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.mutedForeground, marginBottom: 20 }}>
+      <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: Colors.mutedForeground, marginBottom: 20 }}>
         Choose a date and available time.
       </Text>
 
@@ -604,7 +588,7 @@ function Step2({
         <Pressable onPress={onPrevMonth} hitSlop={10} style={{ padding: 4 }}>
           <Ionicons name="chevron-back" size={18} color={Colors.charcoal} />
         </Pressable>
-        <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.charcoal }}>
+        <Text style={{ fontSize: 14, fontFamily: "sans-semibold", color: Colors.charcoal }}>
           {monthLabel}
         </Text>
         <Pressable onPress={onNextMonth} hitSlop={10} style={{ padding: 4 }}>
@@ -616,7 +600,7 @@ function Step2({
       <View style={{ flexDirection: "row", marginBottom: 4 }}>
         {DAYS_SHORT.map((d) => (
           <View key={d} style={{ flex: 1, alignItems: "center" }}>
-            <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.mutedForeground }}>{d}</Text>
+            <Text style={{ fontSize: 11, fontFamily: "sans-medium", color: Colors.mutedForeground }}>{d}</Text>
           </View>
         ))}
       </View>
@@ -646,7 +630,7 @@ function Step2({
                   <Text
                     style={{
                       fontSize: 14,
-                      fontFamily: "Inter_600SemiBold",
+                      fontFamily: "sans-semibold",
                       color: isSelected ? "#fff" : available ? Colors.charcoal : Colors.mutedForeground,
                       opacity: available ? 1 : 0.35,
                     }}
@@ -666,10 +650,10 @@ function Step2({
       {/* Time slots */}
       <View style={{ marginTop: 20 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          <Text style={{ fontSize: 13, fontFamily: "sans-semibold", color: Colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.6 }}>
             Available Times
           </Text>
-          <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.mutedForeground }}>
+          <Text style={{ fontSize: 12, fontFamily: "sans-medium", color: Colors.mutedForeground }}>
             ({localTimezoneLabel()})
           </Text>
         </View>
@@ -677,12 +661,12 @@ function Step2({
         {!selectedDate ? (
           <View style={{ alignItems: "center", paddingVertical: 24 }}>
             <Ionicons name="calendar-outline" size={36} color={Colors.mutedForeground} />
-            <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.mutedForeground, marginTop: 8 }}>
+            <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: Colors.mutedForeground, marginTop: 8 }}>
               Select a date to see available times
             </Text>
           </View>
         ) : availableTimeSlots.length === 0 ? (
-          <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.mutedForeground, textAlign: "center", paddingVertical: 24 }}>
+          <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: Colors.mutedForeground, textAlign: "center", paddingVertical: 24 }}>
             No available slots on this day
           </Text>
         ) : (
@@ -702,7 +686,7 @@ function Step2({
                     paddingVertical: 10,
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: sel ? "#fff" : Colors.charcoal }}>
+                  <Text style={{ fontSize: 13, fontFamily: "sans-semibold", color: sel ? "#fff" : Colors.charcoal }}>
                     {formatTime(t)}
                   </Text>
                 </Pressable>

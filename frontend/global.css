@@ -10,16 +10,16 @@
     --color-dark-emerald: #0E5E60;
     --color-teal: #17A389;
     --color-soft-mint: #8EEED0;
-    --color-warm-ivory: #f1d3a4;
+    --color-warm-ivory: #F7F1E5;
     --color-gold: #F2B544;
     --color-charcoal: #272B2D;
     --color-white: #FFFFFF;
 
     /* ── Semantic tokens ── */
-    --color-background: #f1d3a4;
+    --color-background: #F7F1E5;
     --color-foreground: #272B2D;
     --color-card: #FFFFFF;
-    --color-muted: #eddbb7;
+    --color-muted: #EEE6D8;
     --color-muted-foreground: rgba(39,43,45,0.55);
     --color-primary: #0B3F43;
     --color-accent: #17A389;
@@ -93,7 +93,7 @@
     }
 
     .book-session {
-        @appy font-sans-bold
+        @apply font-sans-bold;
     }
 
     /* Form */

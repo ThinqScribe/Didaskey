@@ -15,6 +15,8 @@ export interface TutorStats {
   total_hours_taught: number;
 }
 
+export async function getTutorStats(): Promise<TutorStats> { return (await apiClient.get("/tutors/me/stats")).data; }
+
 export interface SetAvailabilityPayload {
   slots: { day_of_week: string; start_time: string; end_time: string }[];
 }

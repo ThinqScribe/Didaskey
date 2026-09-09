@@ -1,3 +1,4 @@
+from app.models.learning import LearningItem, Notification, Submission
 from app.models.billing import (
     Booking,
     BookingStatus,

@@ -13,11 +13,10 @@
  * Navigates forward to '/classroom/:bookingId' on join.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   Text,
   View,

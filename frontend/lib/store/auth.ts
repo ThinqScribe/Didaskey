@@ -6,7 +6,6 @@
  */
 
 import { create } from "zustand";
-import * as SecureStore from "expo-secure-store";
 
 import {
   getMe,
@@ -17,6 +16,7 @@ import {
   type User,
 } from "@/lib/api/auth";
 import {
+  apiClient,
   clearTokens,
   getAccessToken,
   registerSessionExpiredHandler,
@@ -25,7 +25,7 @@ import {
 
 // ── State shape ───────────────────────────────────────────────────────────────
 
-export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+export type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "offline";
 
 interface AuthState {
   status: AuthStatus;
@@ -43,7 +43,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => {
   // Register the Axios client's session-expired hook so it can sign out
-  registerSessionExpiredHandler(() => get().signOut());
+  registerSessionExpiredHandler(() => { set({ status: "unauthenticated", user: null }); });
 
   return {
     status: "loading",
@@ -67,13 +67,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // Network errors (timeout, wrong IP, backend down) should NOT
         // wipe the token — the user is still logged in, just offline.
         const status = err?.response?.status;
-        if (status === 401) {
+        if (status === 401 || status === 403) {
           await clearTokens();
           set({ status: "unauthenticated", user: null });
         } else {
           // Network/server error — token still exists and may be valid.
           // Treat as authenticated so the user isn't bounced to sign-in.
-          set({ status: "authenticated", user: null });
+          set({ status: "offline", user: null });
         }
       }
     },
@@ -103,6 +103,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
      * Clears tokens and resets state.
      */
     signOut: async () => {
+      if (get().status === "authenticated") {
+        try { await apiClient.post("/auth/logout"); } catch { /* Local sign-out still works offline. */ }
+      }
       await clearTokens();
       set({ status: "unauthenticated", user: null });
     },

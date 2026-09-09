@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,7 +9,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 import AuthBrand from "@/components/AuthBrand";
 import AuthInput from "@/components/AuthInput";
@@ -28,7 +26,7 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1d3a4" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F1E5" }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -71,7 +69,7 @@ export default function SignIn() {
                 </Text>
               )}
 
-              <Pressable onPress={() => router.push("/(auth)/verify-email")} className="self-end">
+              <Pressable onPress={() => router.push("/(auth)/forgot-password")} className="self-end">
                 <Text className="auth-forgot">Forgot password?</Text>
               </Pressable>
             </View>
@@ -85,29 +83,8 @@ export default function SignIn() {
               />
             </View>
 
-            <View className="auth-divider-row mt-6">
-              <View className="auth-divider-line" />
-              <Text className="auth-divider-text">or continue with</Text>
-              <View className="auth-divider-line" />
-            </View>
-
-            <View className="auth-social-row mt-4">
-              <Pressable className="auth-social-button">
-                <Image
-                  source={{ uri: "https://www.google.com/favicon.ico" }}
-                  style={{ width: 18, height: 18 }}
-                  resizeMode="contain"
-                />
-                <Text className="auth-social-text">Google</Text>
-              </Pressable>
-              <Pressable className="auth-social-button">
-                <Ionicons name="logo-apple" size={18} color="#272B2D" />
-                <Text className="auth-social-text">Apple</Text>
-              </Pressable>
-            </View>
-
             <View className="auth-link-row mt-8">
-              <Text className="auth-link-copy">Don't have an account?</Text>
+              <Text className="auth-link-copy">Don&apos;t have an account?</Text>
               <Pressable onPress={() => router.push("/(auth)/sign-up")}>
                 <Text className="auth-link"> Sign up</Text>
               </Pressable>

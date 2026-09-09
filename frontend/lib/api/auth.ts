@@ -8,15 +8,13 @@ import { apiClient } from "./client";
 
 // ── Types (mirror backend schemas) ───────────────────────────────────────────
 
-export type UserRole = "student" | "parent" | "tutor" | "admin";
+export type UserRole = "student" | "tutor" | "admin";
 
 export type EducationLevel =
   | "primary_school"
   | "junior_secondary"
   | "senior_secondary"
-  | "high_school"
-  | "undergraduate"
-  | "postgraduate";
+  | "high_school";
 
 export interface User {
   id: number;

@@ -17,7 +17,7 @@ export default function TutorCard({ tutor, onPress, onBookmark }: TutorCardProps
   const isOnline = tutor.teaching_mode === "online" || tutor.teaching_mode === "both";
 
   return (
-    <Pressable onPress={onPress} className="flex-row items-center bg-white rounded-[6px] px-4 py-4 mb-3 border border-border/5">
+    <Pressable accessibilityRole="button" accessibilityLabel={`View ${tutor.display_name}, ${primarySubject}`} onPress={onPress} className="flex-row items-center bg-white rounded-[20px] px-4 py-4 mb-3 border border-border/5" style={{ borderColor: "#E6DECF" }}>
       <View className="relative mr-3">
         {tutor.profile_image_url ? (
           <Image source={{ uri: tutor.profile_image_url }} className="w-14 h-14 rounded-full" />
@@ -46,9 +46,9 @@ export default function TutorCard({ tutor, onPress, onBookmark }: TutorCardProps
       </View>
 
       <View className="items-end gap-2">
-        <Pressable onPress={onBookmark} hitSlop={8}>
+        {onBookmark && <Pressable accessibilityLabel="Save tutor" accessibilityRole="button" onPress={onBookmark} hitSlop={8}>
           <Ionicons name="bookmark-outline" size={20} color={Colors.deepTeal} />
-        </Pressable>
+        </Pressable>}
         <Text className="text-[14px] font-sans-bold text-deep-teal">
           {formatCurrency(rate, tutor.currency, 0)}/hr
         </Text>

@@ -19,6 +19,7 @@ import { useRefresh } from "@/lib/hooks/useRefresh";
 import SectionHeader from "@/components/ui/SectionHeader";
 import SubjectPill, { MorePill } from "@/components/home/SubjectPill";
 import TutorCard from "@/components/home/TutorCard";
+import QuickLinks from "@/components/QuickLinks";
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
@@ -102,7 +103,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={() => router.push("/(tabs)/profile")}
+              onPress={() => router.push("/notifications")}
               className="w-10 h-10 rounded-full bg-muted items-center justify-center"
               hitSlop={8}
             >
@@ -134,6 +135,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        <QuickLinks />
         <View className="px-6 pt-2">
           {/* Subject pills */}
           {!loadingSubjects && subjects.length > 0 && (
@@ -181,7 +183,6 @@ export default function HomeScreen() {
                   key={tutor.id}
                   tutor={tutor}
                   onPress={() => router.push(`/tutor/${tutor.id}`)}
-                  onBookmark={() => {}}
                 />
               ))
             )}

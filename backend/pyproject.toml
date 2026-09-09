@@ -21,6 +21,7 @@ dependencies = [
   "httpx>=0.28,<1.0",
   "redis>=5.2,<6.0",
   "livekit-api>=0.8,<2.0",
+  "python-multipart>=0.0.20,<1.0",
 ]
 
 [project.optional-dependencies]

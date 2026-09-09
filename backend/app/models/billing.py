@@ -118,6 +118,7 @@ class Booking(Base):
     """
 
     __tablename__ = "bookings"
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -127,7 +128,7 @@ class Booking(Base):
         nullable=False,
         index=True,
     )
-    """The user making the booking (student or parent)."""
+    """The student making the booking."""
 
     tutor_id: Mapped[int] = mapped_column(
         ForeignKey("tutor_profiles.id", ondelete="RESTRICT"),
@@ -353,7 +354,6 @@ class Refund(Base):
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_refund_amount_positive"),
-        Index("ix_refunds_transaction_id", "transaction_id"),
     )
 
     # ── Relationships ─────────────────────────────────────────────────────────

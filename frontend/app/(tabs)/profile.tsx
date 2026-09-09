@@ -32,8 +32,6 @@ const EDUCATION_LABELS: Record<string, string> = {
   junior_secondary: "Junior Secondary",
   senior_secondary: "Senior Secondary",
   high_school:      "High School",
-  undergraduate:    "Undergraduate",
-  postgraduate:     "Postgraduate",
 };
 
 function statusColor(s: string) {

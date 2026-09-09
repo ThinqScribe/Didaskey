@@ -16,7 +16,8 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_db_session
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.models.marketplace import TutorProfile
 from app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -33,7 +34,7 @@ router = APIRouter()
 
 
 def _tokens(user: User) -> TokenResponse:
-    subject = {"sub": str(user.id)}
+    subject = {"sub": str(user.id), "version": str(user.token_version)}
     return TokenResponse(
         access_token=create_access_token(subject),
         refresh_token=create_refresh_token(subject),
@@ -62,6 +63,9 @@ async def signup(
     )
     db.add(user)
     try:
+        await db.flush()
+        if user.role == UserRole.TUTOR:
+            db.add(TutorProfile(user_id=user.id, display_name=f"{user.first_name} {user.last_name}", verification_status="pending", rate_per_hour=0))
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
@@ -104,7 +108,7 @@ async def refresh(request: RefreshRequest, db: AsyncSession = Depends(get_db_ses
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active or not user.is_verified:
+    if user is None or not user.is_active or not user.is_verified or str(user.token_version) != str(payload.get("version", "0")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     return _tokens(user)
 
@@ -151,7 +155,7 @@ async def forgot_password(
         background_tasks.add_task(
             send_password_reset_email,
             user.email,
-            create_password_reset_token(user.id),
+            create_password_reset_token(user.id, user.token_version),
         )
     return MessageResponse(message="If the account exists, password reset instructions will be sent")
 
@@ -169,7 +173,11 @@ async def reset_password(
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+    claims = decode_token(request.token)
+    if str(claims.get("version", "0")) != str(user.token_version):
+        raise HTTPException(status_code=400, detail="This password reset link has already been used")
     user.hashed_password = hash_password(request.new_password)
+    user.token_version += 1
     await db.commit()
     return MessageResponse(message="Password reset successfully")
 
@@ -177,3 +185,10 @@ async def reset_password(
 @router.get("/me", response_model=UserResponse)
 async def current_user(current_user: User = Depends(get_current_user)) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(db: AsyncSession = Depends(get_db_session), current_user: User = Depends(get_current_user)):
+    current_user.token_version += 1
+    await db.commit()
+    return MessageResponse(message="Signed out on all devices")

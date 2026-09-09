@@ -35,13 +35,10 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
-  FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -50,10 +47,12 @@ import { Ionicons } from "@expo/vector-icons";
 import WebView from "react-native-webview";
 
 import { Colors } from "@/constants";
+import LearningWorkspace from "@/components/LearningWorkspace";
 import {
   joinClassroom,
   leaveClassroom,
   endClassroom,
+  getClassroomStatus,
   type ClassroomJoinResponse,
 } from "@/lib/api/classrooms";
 import { useAuthStore } from "@/lib/store/auth";
@@ -63,13 +62,7 @@ import { useAuthStore } from "@/lib/store/auth";
 type Phase = "loading" | "live" | "error" | "ended";
 type ClassroomTab = "live" | "resources" | "chat";
 
-interface ChatMessage {
-  id: string;
-  sender: string;
-  text: string;
-  timestamp: Date;
-  isLocal: boolean;
-}
+
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -90,9 +83,9 @@ export default function ClassroomScreen() {
   const [activeTab, setActiveTab] = useState<ClassroomTab>("live");
   const [elapsed,   setElapsed]   = useState(0);
   const [ending,    setEnding]    = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const leftRef = useRef(false);
+  const startedAtRef = useRef<number>(Date.now());
   const { user } = useAuthStore();
   const isTutorRole = user?.role === "tutor" || user?.role === "admin";
 
@@ -115,6 +108,8 @@ export default function ClassroomScreen() {
     try {
       const data = await joinClassroom(bookingId);
       setJoinData(data);
+      const status = await getClassroomStatus(bookingId);
+      startedAtRef.current = status.started_at ? Date.parse(status.started_at) : Date.now();
       setPhase("live");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
@@ -139,9 +134,20 @@ export default function ClassroomScreen() {
 
   useEffect(() => {
     if (phase !== "live") return;
-    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    const id = setInterval(() => setElapsed(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000))), 1000);
     return () => clearInterval(id);
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "live") return;
+    let active = true;
+    const timer = setInterval(() => {
+      void getClassroomStatus(bookingId).then(status => {
+        if (active && status.status === "ended") { leftRef.current = true; setPhase("ended"); }
+      }).catch(() => undefined);
+    }, 5000);
+    return () => { active = false; clearInterval(timer); };
+  }, [bookingId, phase]);
 
   const formatTime = (s: number) => {
     const m   = Math.floor(s / 60);
@@ -169,8 +175,9 @@ export default function ClassroomScreen() {
           onPress: async () => {
             setEnding(true);
             leftRef.current = true;
-            try { await endClassroom(bookingId); } catch { /* best-effort */ }
-            router.replace("/(tutor)/sessions" as any);
+            try { await endClassroom(bookingId); setPhase("ended"); }
+            catch { leftRef.current = false; Alert.alert("Could not end session", "You are still connected. Please retry."); }
+            finally { setEnding(false); }
           },
         },
       ],
@@ -365,7 +372,7 @@ export default function ClassroomScreen() {
 
         {/* LiveKit Meet WebView — always mounted, hidden when another tab is active */}
         <View style={{ flex: activeTab === "live" ? 1 : 0, overflow: "hidden" }}>
-          {meetUrl && (
+          {meetUrl && (Platform.OS === "web" ? <iframe title="Didaskey live classroom" src={meetUrl} allow="camera; microphone; display-capture; autoplay; fullscreen" style={{ flex: 1, width: "100%", height: "100%", border: 0 }} /> :
             <WebView
               source={{ uri: meetUrl }}
               style={{ flex: 1, backgroundColor: "#0f172a" }}
@@ -376,9 +383,10 @@ export default function ClassroomScreen() {
               // Android: hardware layer required for video compositing
               androidLayerType="hardware"
               // Prevent the WebView's own back-navigation from interfering
-              onShouldStartLoadWithRequest={() => true}
+              onShouldStartLoadWithRequest={(request) => request.url === "about:blank" || /^https:\/\/meet\.livekit\.io(\/|$)/.test(request.url)}
               // Show a spinner until the page loads
               startInLoadingState
+              onError={() => { setErrorMsg("Video could not load. Check your connection and try again."); setPhase("error"); }}
               renderLoading={() => (
                 <View
                   style={{
@@ -397,178 +405,12 @@ export default function ClassroomScreen() {
           )}
         </View>
 
-        {activeTab === "resources" && (
-          <ResourcesTab isTutor={isTutorRole} />
-        )}
-
-        {activeTab === "chat" && (
-          <ChatTab
-            messages={chatMessages}
-            onSend={(msg) => setChatMessages((prev) => [...prev, msg])}
-            localDisplayName={user ? `${user.first_name} ${user.last_name}`.trim() : "You"}
-          />
+        {activeTab !== "live" && (
+          <ScrollView style={{ backgroundColor: Colors.background }} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+            <LearningWorkspace key={activeTab} bookingId={bookingId} initialTab={activeTab === "chat" ? "message" : "resource"} />
+          </ScrollView>
         )}
       </View>
     </View>
-  );
-}
-
-// ── Resources tab ─────────────────────────────────────────────────────────────
-
-function ResourcesTab({ isTutor }: { isTutor: boolean }) {
-  return (
-    <ScrollView
-      className="flex-1"
-      contentContainerStyle={{ padding: 20 }}
-    >
-      <Text className="text-[11px] font-sans-bold text-white/40 uppercase mb-4">
-        Session materials
-      </Text>
-
-      {isTutor ? (
-        <>
-          <ResourceRow icon="document-text-outline" name="Session notes"  sub="Write notes for this session" />
-          <ResourceRow icon="attach"                name="Share file"     sub="PDF, image, or document"      />
-          <ResourceRow icon="link"                  name="Share link"     sub="Website or reference"         />
-        </>
-      ) : (
-        <View className="items-center py-12">
-          <Ionicons name="folder-open-outline" size={40} color="rgba(255,255,255,0.2)" />
-          <Text className="text-white/40 text-[13px] font-sans-medium mt-3 text-center">
-            No materials shared yet.{"\n"}Your tutor can share files and notes here.
-          </Text>
-        </View>
-      )}
-    </ScrollView>
-  );
-}
-
-function ResourceRow({ icon, name, sub }: { icon: string; name: string; sub: string }) {
-  return (
-    <Pressable
-      className="flex-row items-center gap-3 rounded-xl px-4 py-3 mb-3"
-      style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
-    >
-      <View
-        className="w-10 h-10 rounded-xl items-center justify-center"
-        style={{ backgroundColor: "rgba(13,148,136,0.2)" }}
-      >
-        <Ionicons name={icon as any} size={18} color={Colors.teal} />
-      </View>
-      <View className="flex-1">
-        <Text className="text-white text-[13px] font-sans-semibold">{name}</Text>
-        <Text className="text-white/40 text-[11px] font-sans-medium">{sub}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.2)" />
-    </Pressable>
-  );
-}
-
-// ── Chat tab ──────────────────────────────────────────────────────────────────
-
-function ChatTab({
-  messages,
-  onSend,
-  localDisplayName,
-}: {
-  messages: ChatMessage[];
-  onSend: (msg: ChatMessage) => void;
-  localDisplayName: string;
-}) {
-  const [draft, setDraft] = useState("");
-  const listRef = useRef<FlatList>(null);
-
-  const sendMessage = useCallback(() => {
-    const text = draft.trim();
-    if (!text) return;
-    onSend({
-      id:        String(Date.now()),
-      sender:    localDisplayName,
-      text,
-      timestamp: new Date(),
-      isLocal:   true,
-    });
-    setDraft("");
-  }, [draft, localDisplayName, onSend]);
-
-  useEffect(() => {
-    if (messages.length > 0) listRef.current?.scrollToEnd({ animated: true });
-  }, [messages]);
-
-  return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={120}
-    >
-      {messages.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <Ionicons name="chatbubble-ellipses-outline" size={40} color="rgba(255,255,255,0.15)" />
-          <Text className="text-white/30 text-[13px] font-sans-medium mt-3">
-            No messages yet
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={{ padding: 16, gap: 10 }}
-          renderItem={({ item }) => (
-            <View
-              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${item.isLocal ? "self-end" : "self-start"}`}
-              style={{ backgroundColor: item.isLocal ? Colors.teal : "rgba(255,255,255,0.1)" }}
-            >
-              {!item.isLocal && (
-                <Text className="text-[10px] font-sans-bold mb-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>
-                  {item.sender}
-                </Text>
-              )}
-              <Text className="text-white text-[13px] font-sans-medium">{item.text}</Text>
-              <Text className="text-[10px] font-sans-medium mt-1 text-right" style={{ color: "rgba(255,255,255,0.45)" }}>
-                {item.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </Text>
-            </View>
-          )}
-        />
-      )}
-
-      <View
-        className="flex-row items-end gap-2 px-4 py-3"
-        style={{ borderTopWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}
-      >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Type a message…"
-          placeholderTextColor="rgba(255,255,255,0.25)"
-          multiline
-          style={{
-            flex: 1,
-            color: "#fff",
-            fontSize: 14,
-            backgroundColor: "rgba(255,255,255,0.08)",
-            borderRadius: 20,
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            maxHeight: 100,
-          }}
-          onSubmitEditing={sendMessage}
-          returnKeyType="send"
-          blurOnSubmit
-        />
-        <Pressable
-          onPress={sendMessage}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: draft.trim() ? Colors.teal : "rgba(255,255,255,0.08)" }}
-        >
-          <Ionicons
-            name="send"
-            size={16}
-            color={draft.trim() ? Colors.white : "rgba(255,255,255,0.3)"}
-          />
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
   );
 }

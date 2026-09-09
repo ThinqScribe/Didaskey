@@ -205,8 +205,7 @@ export default function ConfirmScreen() {
       await new Promise((r) => setTimeout(r, 2000));
     }
 
-    // Webhook still in flight — navigate optimistically with local data.
-    goToSuccess(booking);
+    setError("Your payment is still being confirmed. Check your bookings shortly; do not pay again while confirmation is pending.");
   }, [booking, tutorId, params]);
 
   const handleWebSuccess = useCallback(() => {

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import AuthInput from "@/components/AuthInput";
 import AuthButton from "@/components/AuthButton";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { EducationLevel } from "@/lib/api/auth";
+import { Action } from "@/components/ui/Workspace";
 
 // ── Education levels config ───────────────────────────────────────────────────
 
@@ -29,8 +29,6 @@ const EDUCATION_LEVELS: {
   { value: "junior_secondary", label: "Junior Secondary School", icon: "school-outline" },
   { value: "senior_secondary", label: "Senior Secondary School", icon: "school-outline" },
   { value: "high_school",      label: "High School",             icon: "business-outline" },
-  { value: "undergraduate",    label: "Undergraduate",           icon: "school-outline" },
-  { value: "postgraduate",     label: "Postgraduate",            icon: "ribbon-outline" },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -132,6 +130,7 @@ function EducationDropdown({
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function SignUp() {
+  const [role, setRole] = useState<"student" | "tutor">("student");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -154,7 +153,7 @@ export default function SignUp() {
     rules.length &&
     rules.upper &&
     rules.number &&
-    educationLevel !== null;
+    (role === "tutor" || educationLevel !== null);
 
   async function handleSignUp() {
     clearError();
@@ -162,15 +161,15 @@ export default function SignUp() {
       email: email.trim().toLowerCase(),
       phone_number: phone.trim(),
       password,
-      role: "student",
-      education_level: educationLevel,
+      role,
+      education_level: role === "student" ? educationLevel : null,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
     });
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1d3a4" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F1E5" }}>
       {/* Top bar */}
       <View style={{
         flexDirection: "row",
@@ -202,6 +201,10 @@ export default function SignUp() {
           <View className="auth-content">
 
             <AuthBrand title="Create your account" subtitle="Start your learning journey with Didaskey." />
+            <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 20 }}>
+              <Action label="I’m a student" secondary={role !== "student"} onPress={() => setRole("student")} />
+              <Action label="I’m a tutor" secondary={role !== "tutor"} onPress={() => setRole("tutor")} />
+            </View>
 
             <View style={{ marginTop: 24, gap: 10 }}>
               {/* First name + Last name side by side */}
@@ -222,7 +225,7 @@ export default function SignUp() {
               <AuthInput icon="lock-closed-outline" placeholder="Password" value={password}
                 onChangeText={(v) => { clearError(); setPassword(v); }} isPassword autoComplete="new-password" />
 
-              <EducationDropdown value={educationLevel} onChange={setEducationLevel} />
+              {role === "student" && <EducationDropdown value={educationLevel} onChange={setEducationLevel} />}
 
               {/* Error message */}
               {error && (
@@ -242,31 +245,7 @@ export default function SignUp() {
               <AuthButton label="Create Account →" loading={loading} disabled={!canSubmit} onPress={handleSignUp} />
             </View>
 
-            <View className="auth-divider-row" style={{ marginTop: 20 }}>
-              <View className="auth-divider-line" />
-              <Text className="auth-divider-text">or continue with</Text>
-              <View className="auth-divider-line" />
-            </View>
-
-            <View className="auth-social-row" style={{ marginTop: 12 }}>
-              <Pressable className="auth-social-button">
-                <Image source={{ uri: "https://www.google.com/favicon.ico" }} style={{ width: 18, height: 18 }} resizeMode="contain" />
-                <Text className="auth-social-text">Continue with Google</Text>
-              </Pressable>
-              <Pressable className="auth-social-button">
-                <Ionicons name="logo-apple" size={18} color="#272B2D" />
-                <Text className="auth-social-text">Continue with Apple</Text>
-              </Pressable>
-            </View>
-
-            <View style={{ marginTop: 20, flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 3 }}>
-              <Text style={{ fontSize: 12, fontFamily: "sans-medium", color: "rgba(39,43,45,0.55)" }}>
-                By creating an account, you agree to our
-              </Text>
-              <Pressable><Text style={{ fontSize: 12, fontFamily: "sans-bold", color: "#17A389" }}>Terms of Use</Text></Pressable>
-              <Text style={{ fontSize: 12, fontFamily: "sans-medium", color: "rgba(39,43,45,0.55)" }}>and</Text>
-              <Pressable><Text style={{ fontSize: 12, fontFamily: "sans-bold", color: "#17A389" }}>Privacy Policy</Text></Pressable>
-            </View>
+            <Text style={{ textAlign: "center", color: "#62685F", marginTop: 20 }}>Personal learning for primary and secondary school students.</Text>
 
           </View>
         </ScrollView>

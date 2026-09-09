@@ -411,7 +411,7 @@ export default function BookingsScreen() {
         Alert.alert("Payment Error", message);
       }
     },
-    [bookings]
+    []
   );
 
   const handlePaymentSuccess = useCallback(async () => {
@@ -422,7 +422,6 @@ export default function BookingsScreen() {
     if (!bookingId) return;
 
     // Find the booking snapshot for fallback params.
-    const bookingSnapshot = bookings.find((b) => b.id === bookingId) ?? null;
 
     // Helper that navigates to the success screen.
     // Uses router.push (not replace) so it sits on top of the tabs stack.
@@ -458,20 +457,9 @@ export default function BookingsScreen() {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
-    // Webhook hasn't arrived yet (or is in-flight) — navigate optimistically.
-    // The success screen shows the details from params; the booking will
-    // confirm asynchronously via the webhook.
-    const latest = await getBooking(bookingId).catch(() => bookingSnapshot);
-    if (latest) {
-      goToSuccess(latest);
-    } else {
-      setPaying(null);
-      Alert.alert(
-        "Payment processing",
-        "We're confirming your payment. Please check your bookings shortly."
-      );
-    }
-  }, [paying, bookings]);
+    setPaying(null);
+    Alert.alert("Payment processing", "We are still confirming your payment. Check your bookings shortly. Do not pay again while confirmation is pending.");
+  }, [paying]);
 
   const handlePaymentCancel = useCallback(() => {
     setWebViewVisible(false);

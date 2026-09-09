@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi import HTTPException
+from sqlalchemy import text, inspect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.request_limits import RequestBodyLimit
 from app.db.base import Base
 from app.db.session import engine
 
@@ -27,18 +30,22 @@ from app.models import (  # noqa: F401  — side-effect imports
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    if settings.ENVIRONMENT == "development":
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
+    async with engine.connect() as connection:
+        def validate_schema(sync_connection):
+            inspector = inspect(sync_connection)
+            if not inspector.has_table("users") or "token_version" not in {c["name"] for c in inspector.get_columns("users")}:
+                raise RuntimeError("Database migrations are missing. Back up the database, then run 'alembic upgrade head' from the backend directory before starting the API.")
+        await connection.run_sync(validate_schema)
     yield
     await engine.dispose()
 
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
+app.add_middleware(RequestBodyLimit)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list if settings.cors_origin_list else ["*"],
+    allow_origins=settings.cors_origin_list or ["http://localhost:8081"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -85,3 +92,13 @@ app.openapi = _custom_openapi  # type: ignore[method-assign]
 @app.get("/health", tags=["system"])
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/ready", tags=["system"])
+async def ready() -> dict:
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(503, "Database unavailable") from exc
+    return {"status": "ready"}

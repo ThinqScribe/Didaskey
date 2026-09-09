@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Pressable, PressableProps, Text, View } from "react-native";
-import clsx from "clsx";
+import { clsx } from "clsx";
 
 interface AuthButtonProps extends PressableProps {
   label: string;

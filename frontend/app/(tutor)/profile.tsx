@@ -9,8 +9,6 @@ import {
   Text,
   TextInput,
   View,
-  LayoutChangeEvent,
-  Dimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -366,7 +364,7 @@ function AvailabilitySection({
     <View>
       <SectionHeader label="Availability" onBack={onBack} />
       <Text className="text-[13px] font-sans-medium text-muted-foreground mb-4">
-        Your weekly schedule — contact support to make changes.
+        Your weekly schedule. Open Teaching setup to edit your available times.
       </Text>
       <View className="bg-white rounded-2xl px-4">
         {DAYS.map((day, i) => {

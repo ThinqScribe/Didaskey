@@ -1,10 +1,8 @@
 """
 BookingService — all booking lifecycle business logic.
 
-⚠️  **TESTING MODE ACTIVE** ⚠️
-Tutor availability restrictions are currently DISABLED to allow flexible testing.
-All time slots are allowed regardless of tutor availability settings.
-Remember to re-enable availability checks after testing is complete.
+Tutor availability is enforced by default. A development-only configuration
+flag can explicitly bypass availability windows for isolated testing.
 
 Responsibilities
 ----------------
@@ -195,13 +193,16 @@ async def _assert_tutor_available(
     Raises 409 if no matching window is found.
     """
     # Check if availability validation is disabled for testing
-    if settings.SKIP_TUTOR_AVAILABILITY_CHECK:
+    if settings.SKIP_TUTOR_AVAILABILITY_CHECK and settings.ENVIRONMENT == "development":
         logger.info(f"⚠️  TESTING MODE: Skipping availability check for tutor {tutor_id}")
         return  # Allow any booking time during testing
     
     # Original availability checking code (enabled when SKIP_TUTOR_AVAILABILITY_CHECK = False)
     # Preserve the original UTC offset so wall-clock hour/day are correct.
-    local_start = scheduled_at if scheduled_at.tzinfo is not None else scheduled_at.replace(tzinfo=timezone.utc)
+    from zoneinfo import ZoneInfo
+    local_start = _as_utc(scheduled_at).astimezone(ZoneInfo("Africa/Lagos"))
+    if (local_start + timedelta(minutes=duration_minutes)).date() != local_start.date():
+        raise _conflict("Choose a session that finishes within the same availability day")
     day = _day_name(local_start)
     session_start = local_start.time().replace(tzinfo=None)
     session_end = (
@@ -289,9 +290,13 @@ async def create_booking(
     409  tutor not available / time slot conflict
     400  student tries to book themselves
     """
+    if student.role != UserRole.STUDENT:
+        raise _forbidden("Only students may book sessions")
+    # Serialize concurrent reservations for this tutor on PostgreSQL.
+    await db.execute(select(TutorProfile.id).where(TutorProfile.id == payload.tutor_id).with_for_update())
     # ── 1. Load the tutor ─────────────────────────────────────────────────────
     tutor: TutorProfile | None = await db.get(TutorProfile, payload.tutor_id)
-    if tutor is None or not tutor.is_active:
+    if tutor is None or not tutor.is_active or tutor.verification_status != "verified":
         raise _not_found("TutorProfile", payload.tutor_id)
 
     if tutor.user_id == student.id:
@@ -308,9 +313,15 @@ async def create_booking(
                 TutorSubject.subject_id == payload.subject_id,
             )
         )
-        if ts is not None and ts.rate_override is not None:
+        if ts is None:
+            raise _bad_request("This tutor does not teach the selected subject")
+        if ts.rate_override is not None:
             effective_rate = ts.rate_override
 
+    if tutor.teaching_mode not in ("both", payload.session_format):
+        raise _bad_request("This tutor does not offer the selected session format")
+    if effective_rate <= 0:
+        raise _bad_request("This tutor has not set a bookable rate")
     # ── 3. Compute amount (rate × duration in hours) ──────────────────────────
     hours = Decimal(str(payload.duration_minutes)) / Decimal("60")
     amount = (effective_rate * hours).quantize(Decimal("0.01"))
@@ -459,6 +470,43 @@ async def list_tutor_bookings(
     return await _paginate(stmt, page, page_size, db)
 
 
+async def reschedule_booking(booking_id: int, scheduled_at: datetime, user: User, db: AsyncSession) -> BookingResponse:
+    """Keep the paid duration/rate; move only to an available future slot."""
+    booking = await _load_booking(booking_id, db)
+    if user.role != UserRole.ADMIN and (user.role != UserRole.STUDENT or booking.student_id != user.id):
+        raise _forbidden("Only the booking student or an administrator may reschedule.")
+    # Match booking creation's lock order and serialize requests for this tutor.
+    await db.scalar(select(TutorProfile).where(TutorProfile.id == booking.tutor_id).with_for_update())
+    await db.refresh(booking, with_for_update=True)
+    if booking.status != BookingStatus.CONFIRMED:
+        raise _conflict("Only confirmed sessions may be rescheduled.")
+    from app.models.communication import Classroom
+    classroom = await db.scalar(select(Classroom).where(Classroom.booking_id == booking.id))
+    if classroom is not None and classroom.started_at is not None:
+        raise _conflict("A classroom that has already started cannot be rescheduled.")
+    now = datetime.now(timezone.utc)
+    target = _as_utc(scheduled_at)
+    if target <= now or target > now + timedelta(days=180):
+        raise _bad_request("Choose a future time within the next six months.")
+    if _as_utc(booking.scheduled_at) <= now:
+        raise _conflict("A session that has already reached its start time cannot be moved.")
+    if user.role != UserRole.ADMIN and min(_as_utc(booking.scheduled_at), target) < now + timedelta(hours=CANCEL_CUTOFF_HOURS):
+        raise _bad_request("Reschedule at least 24 hours before both the original and new start time.")
+    await _assert_tutor_available(booking.tutor_id, target, booking.duration_minutes, db)
+    await _assert_no_conflict(booking.tutor_id, target, booking.duration_minutes, booking.id, db)
+    old = _as_utc(booking.scheduled_at)
+    if old == target:
+        return _build_response(booking)
+    booking.scheduled_at = target
+    from app.services.learning_service import notify
+    body = f"Session moved from {old.isoformat()} to {target.isoformat()}. Duration and payment are unchanged."
+    notify(db, booking.student_id, "Session rescheduled", body, booking.id)
+    notify(db, booking.tutor.user_id, "Session rescheduled", body, booking.id)
+    await db.flush()
+    await db.refresh(booking)
+    return _build_response(booking)
+
+
 async def cancel_booking(
     booking_id: int,
     payload: BookingCancelRequest,
@@ -503,8 +551,11 @@ async def cancel_booking(
         if booking.status == BookingStatus.COMPLETED:
             raise _conflict("Completed sessions cannot be cancelled.")
 
+    if booking.status == BookingStatus.CANCELLED:
+        return _build_response(booking)
     booking.status = BookingStatus.CANCELLED
     booking.cancellation_reason = payload.reason
+    _notify_booking_change(db, booking, "Session cancelled", "This booking was cancelled. Any refund is handled separately.")
     await db.flush()
 
     logger.info(
@@ -540,6 +591,7 @@ async def confirm_booking(booking_id: int, db: AsyncSession) -> Booking:
         )
 
     booking.status = BookingStatus.CONFIRMED
+    _notify_booking_change(db, booking, "Booking confirmed", "Payment is confirmed. Your learning workspace is ready.")
     await db.flush()
 
     logger.info("Booking confirmed: booking_id=%s", booking.id)
@@ -562,6 +614,7 @@ async def mark_completed(
         )
 
     booking.status = BookingStatus.COMPLETED
+    _notify_booking_change(db, booking, "Session completed", "Your lesson materials and feedback remain available in Learning.")
     await db.flush()
     logger.info("Booking completed: booking_id=%s", booking.id)
     return _build_response(booking)
@@ -589,6 +642,12 @@ async def mark_no_show(
 
 
 # ── Internal ──────────────────────────────────────────────────────────────────
+
+
+def _notify_booking_change(db: AsyncSession, booking: Booking, title: str, body: str):
+    from app.services.learning_service import notify
+    notify(db, booking.student_id, title, body, booking.id)
+    notify(db, booking.tutor.user_id, title, body, booking.id)
 
 
 async def _load_booking(booking_id: int, db: AsyncSession) -> Booking:

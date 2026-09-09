@@ -343,7 +343,6 @@ class Review(Base):
     __table_args__ = (
         CheckConstraint("rating >= 1 AND rating <= 5", name="ck_review_rating_range"),
         UniqueConstraint("student_id", "tutor_id", name="uq_review_student_tutor"),
-        Index("ix_reviews_tutor_id", "tutor_id"),
     )
 
     # ── Relationships ─────────────────────────────────────────────────────────

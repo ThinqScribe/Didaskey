@@ -55,7 +55,6 @@ export default function PaymentFailedScreen() {
     reason: string;
   }>();
 
-  const tutorId = params.tutorId;
   const duration = Number(params.duration ?? "60");
   const sessionFormat = (params.sessionFormat ?? "online") as SessionFormat;
   const amount = parseFloat(params.amount ?? "0");
@@ -208,7 +207,7 @@ export default function PaymentFailedScreen() {
               </Text>
             </View>
             <Text className="flex-1 text-[13px] font-sans-medium text-muted-foreground leading-5">
-              Tap "Try Again" to complete your payment before the slot expires.
+              Tap &quot;Try Again&quot; to complete your payment before the slot expires.
             </Text>
           </View>
 
@@ -255,7 +254,7 @@ export default function PaymentFailedScreen() {
           {/* Tertiary: contact support */}
           <Pressable
             onPress={() => {
-              // Support flow — future scope
+              router.push("/help");
             }}
             className="items-center py-3 active:opacity-60"
           >

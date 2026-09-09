@@ -35,6 +35,7 @@ from app.schemas.marketplace import (
     SubjectResponse,
     TutorDetail,
     TutorProfileUpdateRequest,
+    AddTutorSubjectRequest,
 )
 from app.services import tutor_service
 
@@ -78,6 +79,8 @@ async def update_my_tutor_profile(
     current_user: User = Depends(get_current_user),
 ) -> TutorDetail:
     profile = await _require_tutor_profile(current_user, db)
+    if {"verification_status", "is_active"} & payload.model_fields_set:
+        raise HTTPException(status_code=403, detail="Only administrators can change verification or account status")
     result = await tutor_service.update_tutor_profile(profile.id, payload, db)
     await db.commit()
     return result
@@ -96,6 +99,20 @@ async def set_my_availability(
 
 
 # ── Tutor discovery ───────────────────────────────────────────────────────────
+@router.post("/me/subjects", response_model=TutorDetail)
+async def add_my_subject(payload: AddTutorSubjectRequest, db: AsyncSession = Depends(get_db_session), current_user: User = Depends(get_current_user)):
+    profile = await _require_tutor_profile(current_user, db)
+    result = await tutor_service.add_tutor_subject(profile.id, payload, db)
+    await db.commit()
+    return result
+
+
+@router.delete("/me/subjects/{subject_id}", status_code=204)
+async def remove_my_subject(subject_id: int, db: AsyncSession = Depends(get_db_session), current_user: User = Depends(get_current_user)):
+    profile = await _require_tutor_profile(current_user, db)
+    await tutor_service.remove_tutor_subject(profile.id, subject_id, db)
+    await db.commit()
+
 
 
 @router.get("", response_model=PaginatedTutors, summary="Search and filter tutors")

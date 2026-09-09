@@ -18,6 +18,7 @@ ownership boundaries — the service layer enforces all ownership checks.
 """
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, AwareDatetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, require_role
@@ -34,6 +35,19 @@ from app.schemas.billing import (
 from app.services import booking_service, payment_service
 
 router = APIRouter()
+
+
+class RescheduleRequest(BaseModel):
+    scheduled_at: AwareDatetime
+
+
+@router.patch("/{booking_id}/reschedule", response_model=BookingResponse)
+async def reschedule_booking(booking_id: int, payload: RescheduleRequest,
+                             db: AsyncSession = Depends(get_db_session),
+                             user: User = Depends(get_current_user)):
+    result = await booking_service.reschedule_booking(booking_id, payload.scheduled_at, user, db)
+    await db.commit()
+    return result
 
 
 @router.post(
@@ -54,7 +68,7 @@ async def create_booking(
     current_user: User = Depends(get_current_user),
 ) -> BookingWithPaystackResponse:
     """
-    Only students and parents may create bookings.
+    Only students may create bookings.
     Tutors and admins are rejected at the service layer.
     """
     booking, reference = await booking_service.create_booking(payload, current_user, db)

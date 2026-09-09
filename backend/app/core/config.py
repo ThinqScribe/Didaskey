@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 
 # Always resolve .env relative to this file (backend/app/core/config.py → backend/.env)
 _ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str = "http://localhost:8081"
     CORS_ORIGINS: str = ""
     IMAGEBB_API_KEY: str = ""
 
@@ -29,10 +30,7 @@ class Settings(BaseSettings):
     """Server-side Paystack secret key (sk_live_… or sk_test_…). Never exposed to clients."""
 
     PAYSTACK_WEBHOOK_SECRET: str =""
-    """
-    The HMAC-SHA512 secret used to verify Paystack webhook signatures.
-    Set this to the same value configured in the Paystack dashboard.
-    """
+    """Legacy setting, ignored. Paystack signs with PAYSTACK_SECRET_KEY."""
 
     # ── LiveKit (video classroom) ─────────────────────────────────────────────
     LIVEKIT_URL: str = ""
@@ -51,7 +49,7 @@ class Settings(BaseSettings):
     """How many minutes after the scheduled end time the classroom stays joinable."""
 
     # ── Testing Configuration ────────────────────────────────────────────────
-    SKIP_TUTOR_AVAILABILITY_CHECK: bool = True
+    SKIP_TUTOR_AVAILABILITY_CHECK: bool = False
     """
     When True, tutors can be booked at any time regardless of their availability settings.
     Useful for testing. Set to False in production to enforce availability windows.
@@ -61,6 +59,19 @@ class Settings(BaseSettings):
     """Validity window of an issued LiveKit access token."""
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore")
+
+    @model_validator(mode="after")
+    def production_settings(self):
+        if self.ENVIRONMENT == "production":
+            if self.DEBUG or len(self.SECRET_KEY) < 32:
+                raise ValueError("Production requires DEBUG=false and a SECRET_KEY of at least 32 characters")
+            if not self.cors_origin_list or "*" in self.cors_origin_list:
+                raise ValueError("Production requires explicit CORS_ORIGINS")
+            if not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
+                raise ValueError("Production requires PostgreSQL with the asyncpg driver")
+            if not self.FRONTEND_URL.startswith("https://"):
+                raise ValueError("Production requires an HTTPS FRONTEND_URL")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

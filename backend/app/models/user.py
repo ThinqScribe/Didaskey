@@ -45,6 +45,7 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
+    token_version: Mapped[int] = mapped_column(default=0, server_default="0", nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

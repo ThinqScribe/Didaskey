@@ -36,7 +36,9 @@ async def get_current_user(
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None:
+    if user is None or not user.is_active or not user.is_verified or user.role == UserRole.PARENT:
+        raise credentials_exception
+    if str(payload.get("version", "0")) != str(user.token_version):
         raise credentials_exception
 
     return user

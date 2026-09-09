@@ -19,9 +19,7 @@ Security invariants
    the stored transaction amount. A mismatch aborts processing.
 4. The paystack_reference UNIQUE constraint on Transaction prevents a
    replayed webhook from affecting a different row.
-5. Webhook always returns HTTP 200 to Paystack (even on processing errors)
-   so Paystack does not retry indefinitely. Errors are logged and an alert
-   can be wired to the logger.
+5. Transient processing failures propagate so Paystack can retry delivery.
 6. Student email is used for Paystack initialisation but never logged at
    INFO level — only at DEBUG, which should be off in production.
 """
@@ -29,6 +27,7 @@ Security invariants
 from __future__ import annotations
 
 import logging
+import json
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -39,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.integrations import payments as paystack
+from app.core.config import settings
 from app.models.billing import (
     Booking,
     BookingStatus,
@@ -164,7 +164,7 @@ async def initiate_payment(
         amount=txn.amount,
         currency=txn.currency,
         reference=new_reference,
-        callback_url="https://didaskey.app/payment/callback",
+        callback_url=f"{settings.FRONTEND_URL.rstrip('/')}/payment/callback",
         metadata={
             "booking_id": booking.id,
             "student_id": student.id,
@@ -216,8 +216,7 @@ async def handle_webhook(
     5. Idempotency: if the transaction is already SUCCESS the handler
        exits cleanly without re-processing.
 
-    This method never raises to the caller — it logs errors internally
-    so the endpoint can always return HTTP 200 to Paystack.
+    Invalid payloads are ignored; transient processing errors propagate for retry.
     """
     # ── Step 1: Verify HMAC signature ─────────────────────────────────────────
     if not paystack.verify_webhook_signature(raw_body, signature):
@@ -226,9 +225,17 @@ async def handle_webhook(
 
     # ── Step 2: Parse payload (safe now that signature is verified) ───────────
     try:
-        payload = PaystackWebhookPayload.model_validate_json(raw_body)
+        envelope = json.loads(raw_body)
     except Exception as exc:
         logger.error("Webhook parse error: %s", exc)
+        return
+    if isinstance(envelope, dict) and str(envelope.get("event", "")).startswith("refund."):
+        await _process_refund(envelope["event"], envelope.get("data", {}), db)
+        return
+    try:
+        payload = PaystackWebhookPayload.model_validate(envelope)
+    except Exception as exc:
+        logger.error("Webhook charge parse error: %s", exc)
         return
 
     event = payload.event
@@ -243,6 +250,33 @@ async def handle_webhook(
     else:
         # Unknown event — acknowledge silently
         logger.debug("Webhook event ignored: %s", event)
+
+
+async def _process_refund(event: str, data: dict, db: AsyncSession) -> None:
+    """Reconcile signed full-refund notifications; terminal success never regresses."""
+    if event not in {"refund.processed", "refund.failed"} or not isinstance(data, dict):
+        return
+    reference = data.get("transaction_reference")
+    if not isinstance(reference, str):
+        return
+    txn = await db.scalar(select(Transaction).where(
+        Transaction.paystack_reference == reference
+    ).with_for_update())
+    if txn is None:
+        return
+    refund = await db.scalar(select(Refund).where(Refund.transaction_id == txn.id))
+    if refund is None or refund.status == RefundStatus.PROCESSED:
+        return
+    try:
+        amount = Decimal(str(data.get("amount"))) / Decimal("100")
+    except Exception:
+        return
+    if amount != refund.amount or str(data.get("currency", "")).upper() != txn.currency.upper():
+        return
+    refund.status = RefundStatus.PROCESSED if event == "refund.processed" else RefundStatus.FAILED
+    if refund.status == RefundStatus.PROCESSED:
+        txn.status = TransactionStatus.REFUNDED
+    await db.flush()
 
 
 async def _process_charge_success(
@@ -263,6 +297,7 @@ async def _process_charge_success(
         select(Transaction)
         .where(Transaction.paystack_reference == data.reference)
         .options(selectinload(Transaction.booking))
+        .with_for_update()
     )
     if txn is None:
         logger.error(
@@ -271,7 +306,7 @@ async def _process_charge_success(
         return
 
     # ── 2. Idempotency ────────────────────────────────────────────────────────
-    if txn.status == TransactionStatus.SUCCESS:
+    if txn.status in (TransactionStatus.SUCCESS, TransactionStatus.REFUNDED):
         logger.info(
             "Webhook charge.success: already processed reference=%s", data.reference
         )
@@ -286,7 +321,7 @@ async def _process_charge_success(
             data.reference,
             exc,
         )
-        return
+        raise HTTPException(503, "Payment verification unavailable; retry delivery") from exc
 
     if verified.get("status") != "success":
         logger.warning(
@@ -299,7 +334,10 @@ async def _process_charge_success(
 
     # ── 4. Amount cross-check ─────────────────────────────────────────────────
     webhook_amount = Decimal(str(data.amount)) / Decimal("100")
-    if abs(webhook_amount - txn.amount) > Decimal("0.01"):
+    if (webhook_amount != txn.amount or data.currency.upper() != txn.currency.upper()
+        or Decimal(str(verified.get("amount", -1))) != txn.amount * 100
+        or str(verified.get("currency", "")).upper() != txn.currency.upper()
+        or verified.get("reference") != txn.paystack_reference):
         logger.error(
             "Webhook charge.success: amount mismatch reference=%s "
             "expected=%s received=%s — aborting",
@@ -455,8 +493,8 @@ async def issue_refund(
     )
     db.add(refund)
 
-    # Update transaction status
-    txn.status = TransactionStatus.REFUNDED
+    # A queued request is not a completed refund. Only the signed processed
+    # notification moves the original transaction to REFUNDED.
     await db.flush()
 
     logger.info(

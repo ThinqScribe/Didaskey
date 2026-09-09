@@ -98,7 +98,7 @@ def verify_webhook_signature(raw_body: bytes, paystack_signature: str) -> bool:
     Uses ``hmac.compare_digest`` for constant-time comparison to prevent
     timing-based side-channel attacks.
     """
-    secret = settings.PAYSTACK_WEBHOOK_SECRET
+    secret = settings.PAYSTACK_SECRET_KEY
     if not secret:
         logger.warning(
             "PAYSTACK_WEBHOOK_SECRET is not configured — "

@@ -34,7 +34,9 @@ export function useAuth() {
     try {
       await signIn(payload);
       const role = useAuthStore.getState().user?.role;
-      if (role === "tutor") {
+      if (role === "admin") {
+        router.replace("/admin");
+      } else if (role === "tutor") {
         router.replace("/(tutor)/dashboard");
       } else {
         router.replace("/(tabs)/home");

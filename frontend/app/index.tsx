@@ -11,22 +11,25 @@ import { View, ActivityIndicator } from "react-native";
 import { useAuthStore } from "@/lib/store/auth";
 
 export default function Index() {
-  const { status, bootstrap, user } = useAuthStore();
+  const { status, user } = useAuthStore();
   const mounted = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
-    bootstrap();
+    // Authentication is hydrated by the root layout, including deep links.
+    return () => { mounted.current = false; };
   }, []);
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (status === "loading" || status === "offline") return;
 
     const t = setTimeout(() => {
       if (!mounted.current) return;
       if (status === "authenticated") {
         const role = user?.role;
-        if (role === "tutor") {
+        if (role === "admin") {
+          router.replace("/admin");
+        } else if (role === "tutor") {
           router.replace("/(tutor)/dashboard");
         } else {
           router.replace("/(tabs)/home");
@@ -40,7 +43,7 @@ export default function Index() {
   }, [status, user?.role]);
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f1d3a4" }}>
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F7F1E5" }}>
       <ActivityIndicator size="large" color="#17A389" />
     </View>
   );

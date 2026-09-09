@@ -1,6 +1,6 @@
-# Tuterra
+# Didaskey
 
-A live tutoring marketplace connecting students with tutors for 1-on-1 and group sessions. Students discover and book tutors, pay via Paystack, and attend live sessions with video, resources, and chat.
+A tutoring marketplace for pre-varsity students, tutors, and administrators. No parent experience or university platform is included. See [implementation status and launch runbook](IMPLEMENTATION.md) for delivered features and remaining work. This repository is not yet certified production-ready.
 
 ---
 
@@ -58,7 +58,7 @@ Didaskey/
 ### Prerequisites
 
 - Python 3.12+
-- Node.js 20+
+- Node.js 22+
 - A [LiveKit Cloud](https://cloud.livekit.io) project (free tier works)
 - A [Paystack](https://paystack.com) account (test keys are fine)
 - A [Resend](https://resend.com) account for transactional email
@@ -82,6 +82,7 @@ cp .env.example .env
 # Edit .env — see the Environment variables section below
 
 # Run the dev server
+alembic upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -112,9 +113,7 @@ cp .env.example .env
 npx expo start
 ```
 
-Scan the QR code with **Expo Go** (SDK 57) for all screens except the classroom.
-
-The classroom uses a LiveKit Meet WebView and works in Expo Go — no native build required for development.
+Use a development client compatible with the installed Expo SDK. The classroom embeds LiveKit Meet in a native WebView or web iframe; permissions and reconnect behavior still require real-device testing.
 
 For a full production build:
 
@@ -130,13 +129,13 @@ npx expo run:ios       # requires Xcode (macOS only)
 ### Backend — `backend/.env`
 
 ```env
-APP_NAME=Tuterra API
+APP_NAME=Didaskey API
 ENVIRONMENT=development
 DEBUG=true
 API_V1_PREFIX=/api/v1
 
 # Database (SQLite for dev, PostgreSQL for prod)
-DATABASE_URL=sqlite+aiosqlite:///./tuterra.db
+DATABASE_URL=sqlite+aiosqlite:///./didaskey.db
 
 # Auth
 SECRET_KEY=replace-with-a-long-random-secret
@@ -157,7 +156,7 @@ IMAGEBB_API_KEY=...
 
 # Paystack — https://dashboard.paystack.com/#/settings/developers
 PAYSTACK_SECRET_KEY=sk_test_...
-PAYSTACK_WEBHOOK_SECRET=...
+# Webhook signatures use PAYSTACK_SECRET_KEY.
 
 # LiveKit — https://cloud.livekit.io
 LIVEKIT_URL=wss://your-project.livekit.cloud
@@ -165,7 +164,7 @@ LIVEKIT_API_KEY=API...
 LIVEKIT_API_SECRET=...
 
 # Development flags
-SKIP_TUTOR_AVAILABILITY_CHECK=true
+SKIP_TUTOR_AVAILABILITY_CHECK=false
 ```
 
 ### Frontend — `frontend/.env`
@@ -193,7 +192,7 @@ EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_...
 
 **Live classroom**
 - Video powered by LiveKit Cloud
-- Works in Expo Go via LiveKit Meet WebView
+- LiveKit Meet embedded in native WebView or web iframe
 - Chat tab for in-session messaging
 - Resources tab for sharing materials
 - Automatic attendance tracking (join/leave timestamps)
@@ -218,7 +217,7 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-In development with SQLite, the database is auto-created on server start (`Base.metadata.create_all`). Use Alembic migrations for PostgreSQL in staging and production.
+Run migrations in every environment: table creation does not upgrade existing schemas. Back up existing databases first, and do not blindly stamp a mismatched schema.
 
 ---
 

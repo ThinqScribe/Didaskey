@@ -14,8 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, TabBar } from "@/constants";
 import { useAuthStore } from "@/lib/store/auth";
 import { useRefresh } from "@/lib/hooks/useRefresh";
-import { formatCurrency, formatBookingDate, formatBookingTimeRange, type BookingResponse } from "@/lib/api/bookings";
-import { getMyTutorProfile, listTutorBookings, computeStats, type TutorStats } from "@/lib/api/tutor-portal";
+import { formatCurrency, formatBookingDate, type BookingResponse } from "@/lib/api/bookings";
+import { getMyTutorProfile, listTutorBookings, getTutorStats, type TutorStats } from "@/lib/api/tutor-portal";
 import type { TutorDetail } from "@/lib/api/tutors";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export default function TutorDashboard() {
       const b = await listTutorBookings(p.id, { page: 1, page_size: 50 });
       setProfile(p);
       setBookings(b.items);
-      setStats(computeStats(b.items, p));
+      setStats(await getTutorStats());
     } catch {
       // profile not yet configured
     } finally {
@@ -243,7 +243,7 @@ export default function TutorDashboard() {
           style={{ backgroundColor: Colors.deepTeal }}>
           <Text className="text-[11px] font-sans-bold uppercase mb-3"
             style={{ color: `${Colors.softMint}80` }}>
-            This Week Overview
+            Your Teaching Overview
           </Text>
           <View className="flex-row">
             <WeekStatCard value={String(stats?.total_sessions ?? 0)} label="Sessions" />

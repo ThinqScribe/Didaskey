@@ -1,5 +1,8 @@
 import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, router, useSegments } from "expo-router";
+import { ActivityIndicator, Text, View } from "react-native";
+import { useAuthStore } from "@/lib/store/auth";
+import { Action, ui } from "@/components/ui/Workspace";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import "@/global.css";
@@ -7,6 +10,17 @@ import "@/global.css";
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
+  const { status, user, bootstrap, signOut } = useAuthStore();
+  const segments = useSegments();
+  useEffect(() => { void bootstrap(); }, [bootstrap]);
+  useEffect(() => {
+    if (status === "loading" || status === "offline") return;
+    const group = segments[0];
+    if (status === "unauthenticated" && group && group !== "(auth)") router.replace("/(auth)/sign-in");
+    if (status === "authenticated" && group === "(tabs)" && user?.role !== "student") router.replace(user?.role === "admin" ? "/admin" : "/(tutor)/dashboard");
+    if (status === "authenticated" && group === "(tutor)" && user?.role !== "tutor") router.replace(user?.role === "admin" ? "/admin" : "/(tabs)/home");
+    if (status === "authenticated" && group === "admin" && user?.role !== "admin") router.replace("/");
+  }, [status, user?.role, segments]);
   const [fontsLoaded] = useFonts({
     "sans-regular":   require("@/assets/images/fonts/PlusJakartaSans-Regular.ttf"),
     "sans-light":     require("@/assets/images/fonts/PlusJakartaSans-Light.ttf"),
@@ -23,12 +37,15 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
+  if (status === "loading" || status === "offline") return <View style={{ flex: 1, backgroundColor: "#F7F1E5", alignItems: "center", justifyContent: "center", padding: 28, gap: 20 }}>
+    {status === "loading" ? <ActivityIndicator color="#0B3F43" /> : <><Text style={ui.heading}>Let’s reconnect</Text><Text style={ui.text}>We could not check your session. Your saved sign-in is still here.</Text><Action label="Try again" onPress={() => { void bootstrap(); }} /><Action label="Sign out" secondary onPress={() => { void signOut(); }} /></>}
+  </View>;
 
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#f1d3a4" },
+        contentStyle: { backgroundColor: "#F7F1E5" },
       }}
     >
       {/* Classroom screens are dark — override the warm-ivory background */}

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, TabBar, TUTOR_TABS } from "@/constants";
 import type { TabDef } from "@/constants";
+import QuickLinks from "@/components/QuickLinks";
 
 function TabIcon({ focused, icon, iconFocused }: {
   focused: boolean;
@@ -36,7 +37,7 @@ export default function TutorTabLayout() {
   const bottomOffset = Math.max(insets.bottom, TabBar.horizontalInset);
 
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={{ headerShown: true, header: () => <QuickLinks /> }}>
       {TUTOR_TABS.map((tab) => (
         <Tabs.Screen
           key={tab.name}

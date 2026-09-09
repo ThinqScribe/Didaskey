@@ -5,11 +5,22 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "@/lib/hooks/useAuth";
+import { verifyEmail, extractErrorMessage } from "@/lib/api/auth";
+import { Action, Card, ErrorNotice, Page, ui } from "@/components/ui/Workspace";
 
 const RESEND_COOLDOWN = 45;
 
 export default function VerifyEmail() {
-  const { email } = useLocalSearchParams<{ email?: string }>();
+  const { email, token } = useLocalSearchParams<{ email?: string; token?: string }>();
+  const [verified, setVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  async function confirmEmail() {
+    setVerifying(true); setVerificationError("");
+    try { await verifyEmail(token!); setVerified(true); }
+    catch(e) { setVerificationError(extractErrorMessage(e, "This link may have expired. Request another verification email.")); }
+    finally { setVerifying(false); }
+  }
   const displayEmail = email ?? "your email";
 
   const { resendVerification, loading, error } = useAuth();
@@ -47,8 +58,10 @@ export default function VerifyEmail() {
   const pad = (n: number) => String(n).padStart(2, "0");
   const timerLabel = `${pad(Math.floor(countdown / 60))}:${pad(countdown % 60)}`;
 
+  if (token) return <Page title="Verify your email"><Card><Text style={ui.text}>{verified ? "Your email is verified. You can now sign in." : "Confirm your email address to start learning on Didaskey."}</Text><ErrorNotice message={verificationError} /><Action label={verified ? "Sign in" : "Verify email"} busy={verifying} onPress={verified ? () => router.replace("/(auth)/sign-in") : confirmEmail} /></Card></Page>;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1d3a4" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F1E5" }}>
 
       <Pressable
         onPress={() => router.back()}
@@ -71,7 +84,7 @@ export default function VerifyEmail() {
             Verify your email
           </Text>
           <Text style={{ fontSize: 14, fontFamily: "sans-medium", color: "rgba(39,43,45,0.6)", textAlign: "center", lineHeight: 22 }}>
-            We've sent a verification link to
+            We&apos;ve sent a verification link to
           </Text>
           <Text style={{ fontSize: 14, fontFamily: "sans-bold", color: "#0B3F43", textAlign: "center" }}>
             {displayEmail}
@@ -91,7 +104,7 @@ export default function VerifyEmail() {
           marginBottom: 24,
         }}>
           <Text style={{ fontSize: 14, fontFamily: "sans-semibold", color: "#272B2D" }}>
-            Didn't receive the email?
+            Didn&apos;t receive the email?
           </Text>
           <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: "rgba(39,43,45,0.55)", lineHeight: 20 }}>
             Check your spam folder or resend the email.
