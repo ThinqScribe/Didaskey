@@ -11,7 +11,7 @@ export default function AuthBrand({ title, subtitle }: AuthBrandProps) {
     <View className="auth-brand-block">
       <Image
         source={require("@/assets/images/logo.png")}
-        className="auth-logo"
+        style={{ width: 190, height: 64 }}
         resizeMode="contain"
       />
       <Text className="auth-title">{title}</Text>

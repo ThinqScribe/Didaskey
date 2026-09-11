@@ -198,7 +198,7 @@ export default function TutorDetailScreen() {
           TOP NAVIGATION
       ═══════════════════════════════════════ */}
 
-      <View className="flex-row items-center justify-between px-5 py-2">
+      <View className="flex-row items-center justify-between px-5 py-2" style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={10}
@@ -211,29 +211,7 @@ export default function TutorDetailScreen() {
           />
         </Pressable>
 
-        <View className="flex-row items-center gap-1">
-          <Pressable
-            hitSlop={10}
-            className="w-9 h-9 items-center justify-center"
-          >
-            <Ionicons
-              name="heart-outline"
-              size={21}
-              color={Colors.charcoal}
-            />
-          </Pressable>
-
-          <Pressable
-            hitSlop={10}
-            className="w-9 h-9 items-center justify-center"
-          >
-            <Ionicons
-              name="ellipsis-vertical"
-              size={20}
-              color={Colors.charcoal}
-            />
-          </Pressable>
-        </View>
+        <Text className="text-[12px] font-sans-bold text-teal">TUTOR PROFILE</Text>
       </View>
 
       {/* ═══════════════════════════════════════
@@ -253,13 +231,16 @@ export default function TutorDetailScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: 110,
+          width: "100%",
+          maxWidth: 760,
+          alignSelf: "center",
         }}
       >
         {/* ═══════════════════════════════════════
             PROFILE HEADER
         ═══════════════════════════════════════ */}
 
-        <View className="flex-row items-center pt-3 pb-5">
+        <View className="flex-row items-center mt-2 mb-5 p-5 rounded-[28px] bg-card border border-border">
           {/* Avatar */}
 
           <View
@@ -370,7 +351,7 @@ export default function TutorDetailScreen() {
 
           <StatBadge
             value={`${tutor.total_hours_taught}+`}
-            label="Students"
+            label="Hours taught"
             divider
           />
 
@@ -511,7 +492,7 @@ export default function TutorDetailScreen() {
       ═══════════════════════════════════════ */}
 
       <View
-        className="absolute bottom-0 left-0 right-0 bg-white"
+        className="absolute bottom-0 left-0 right-0 bg-card"
         style={{
           borderTopWidth: 1,
           borderTopColor: Colors.border,
@@ -520,7 +501,7 @@ export default function TutorDetailScreen() {
           paddingBottom: 14,
         }}
       >
-        <View className="flex-row items-center mb-7 justify-between">
+        <View className="flex-row items-center justify-between" style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
           {/* Price */}
 
           <View className="flex-row items-baseline">

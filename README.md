@@ -1,6 +1,6 @@
 # Didaskey
 
-A tutoring marketplace for pre-varsity students, tutors, and administrators. No parent experience or university platform is included. See [implementation status and launch runbook](IMPLEMENTATION.md) for delivered features and remaining work. This repository is not yet certified production-ready.
+A tutoring marketplace for pre-varsity students, tutors, and administrators. No parent experience or university platform is included. See [implementation status and launch runbook](IMPLEMENTATION.md) and the [interface structure](frontend/UI_FLOW.md) for delivered features, screen flow and remaining work. This repository is not yet certified production-ready.
 
 ---
 

@@ -43,7 +43,10 @@ export default function TabLayout() {
           name={tab.name}
           options={{
             title: tab.title,
-            tabBarShowLabel: false,
+            tabBarShowLabel: true,
+            tabBarLabelStyle: { fontFamily: "sans-semibold", fontSize: 10, marginTop: -3, marginBottom: 8 },
+            tabBarActiveTintColor: Colors.tabIconActive,
+            tabBarInactiveTintColor: Colors.tabIconInactive,
             tabBarIcon: ({ focused }) => (
               <TabIcon focused={focused} icon={tab.icon} iconFocused={tab.iconFocused} />
             ),
@@ -54,15 +57,16 @@ export default function TabLayout() {
               height: TabBar.height,
               borderRadius: TabBar.radius,
               backgroundColor: Colors.tabBar,
-              borderTopWidth: 0,
-              elevation: 0,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.15,
-              shadowRadius: 16,
+              borderWidth: 1,
+              borderColor: Colors.border,
+              elevation: 8,
+              shadowColor: Colors.deepTeal,
+              shadowOffset: { width: 0, height: 5 },
+              shadowOpacity: 0.12,
+              shadowRadius: 18,
             },
             tabBarItemStyle: {
-              paddingVertical: (TabBar.height / 2) - (TabBar.iconFrame / 1.6),
+              paddingTop: 4,
             },
             tabBarIconStyle: {
               width: TabBar.iconFrame,

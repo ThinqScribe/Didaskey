@@ -111,7 +111,7 @@ class Booking(Base):
 
     Relationships
     -------------
-    student  → User (role=student or parent)
+    student  → User (role=student)
     tutor    → TutorProfile
     subject  → Subject (the subject being tutored)
     transaction → Transaction (one-to-one, created alongside the booking)

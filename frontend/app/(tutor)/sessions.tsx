@@ -104,7 +104,7 @@ function SessionCard({ booking }: { booking: BookingResponse }) {
   const amount = parseFloat(booking.amount);
 
   return (
-    <View className="bg-white rounded-tr-2xl rounded-bl-2xl border border-border px-4 py-4 mb-3">
+    <View className="bg-card rounded-[24px] border border-border px-4 py-4 mb-3">
       {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center gap-2">

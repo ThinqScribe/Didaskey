@@ -2,7 +2,9 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -17,8 +19,13 @@ import { useRefresh } from "@/lib/hooks/useRefresh";
 import SearchBar from "@/components/ui/SearchBar";
 import SubjectPill from "@/components/home/SubjectPill";
 import TutorCard from "@/components/home/TutorCard";
-import { Action, ErrorNotice, Field, ui } from "@/components/ui/Workspace";
+import { Action, ErrorNotice, Field } from "@/components/ui/Workspace";
 import { extractErrorMessage } from "@/lib/api/auth";
+import { EmptyState, ScreenHeading } from "@/components/ui/AppChrome";
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && { opacity: 0.7 }]}><Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text></Pressable>;
+}
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -91,21 +98,16 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: Colors.background }}>
-      <View style={{ paddingHorizontal: Spacing.xl, paddingTop: Spacing.base }}>
-        <Text className="text-[22px] font-sans-bold text-charcoal mb-4">Find a Tutor</Text>
+      <View style={styles.header}>
+        <ScreenHeading title="Find your tutor" subtitle="Verified educators for your current learning goal." />
 
         <SearchBar
           value={query}
           onChangeText={setQuery}
           placeholder="Search by name or subject"
         />
-        <Action label={filtersOpen ? "Hide filters" : "Filter tutors"} secondary onPress={() => setFiltersOpen(v => !v)} />
-        {filtersOpen && <View style={{ gap: 10, paddingVertical: 12 }}><View style={ui.row}>
-          <Action label="Any format" secondary={mode !== undefined} onPress={() => setMode(undefined)} />
-          <Action label="Online" secondary={mode !== "online"} onPress={() => setMode("online")} />
-          <Action label="In person" secondary={mode !== "in_person"} onPress={() => setMode("in_person")} />
-          <Action label="4★ and above" secondary={!minRating} onPress={() => setMinRating(v => !v)} />
-        </View><Field label="Maximum hourly rate" value={maxRate} onChangeText={v => setMaxRate(v.replace(/[^0-9.]/g, ""))} keyboardType="decimal-pad" placeholder="Any price" /></View>}
+        <View style={styles.filterRow}><FilterChip label="All formats" active={mode === undefined} onPress={() => setMode(undefined)} /><FilterChip label="Online" active={mode === "online"} onPress={() => setMode("online")} /><FilterChip label="In person" active={mode === "in_person"} onPress={() => setMode("in_person")} /><Pressable accessibilityRole="button" onPress={() => setFiltersOpen(v => !v)} style={styles.filterMore}><Ionicons name="options-outline" size={16} color={Colors.deepTeal} /><Text style={styles.filterMoreText}>{filtersOpen ? "Less" : "More"}</Text></Pressable></View>
+        {filtersOpen && <View style={styles.filterPanel}><FilterChip label="Rated 4★+" active={minRating} onPress={() => setMinRating(v => !v)} /><View style={{ flex: 1, minWidth: 170 }}><Field label="Maximum hourly rate" value={maxRate} onChangeText={v => setMaxRate(v.replace(/[^0-9.]/g, ""))} keyboardType="decimal-pad" placeholder="Any price" /></View></View>}
         <ErrorNotice message={error} retry={() => fetchTutors({ search: query || undefined, subject_id: activeSubjectId ?? undefined, teaching_mode: mode, max_rate: maxRate ? Number(maxRate) : undefined, min_rating: minRating ? 4 : undefined })} />
 
         {!loadingSubjects && subjects.length > 0 && (
@@ -131,12 +133,7 @@ export default function SearchScreen() {
           <ActivityIndicator color={Colors.teal} />
         </View>
       ) : tutors.length === 0 ? (
-        <View className="flex-1 items-center justify-center gap-3">
-          <Ionicons name="search-outline" size={48} color={Colors.mutedForeground} />
-          <Text className="text-[15px] font-sans-semibold text-muted-foreground">
-            No tutors match your search
-          </Text>
-        </View>
+        <View style={styles.emptyWrap}><EmptyState icon="search-outline" title="No tutor matches yet" body="Try a different subject, format, rating, or price." action={<Action label="Clear filters" secondary onPress={() => { setQuery(""); setActiveSubjectId(null); setMode(undefined); setMaxRate(""); setMinRating(false); }} />} /></View>
       ) : (
         <FlatList
           data={tutors}
@@ -154,7 +151,11 @@ export default function SearchScreen() {
           contentContainerStyle={{
             paddingHorizontal: Spacing.xl,
             paddingBottom: TabBar.height + TabBar.horizontalInset + Spacing.xl,
+            width: "100%",
+            maxWidth: 760,
+            alignSelf: "center",
           }}
+          ListHeaderComponent={<Text style={styles.results}>{tutors.length} tutor{tutors.length === 1 ? "" : "s"} shown</Text>}
           renderItem={({ item }) => (
             <TutorCard
               tutor={item}
@@ -166,3 +167,17 @@ export default function SearchScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { width: "100%", maxWidth: 760, alignSelf: "center", paddingHorizontal: 20, paddingTop: 18, gap: 14 },
+  filterRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  chip: { minHeight: 40, justifyContent: "center", borderRadius: 14, paddingHorizontal: 14, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  chipActive: { backgroundColor: Colors.deepTeal, borderColor: Colors.deepTeal },
+  chipText: { fontFamily: "sans-semibold", fontSize: 12, color: Colors.foreground },
+  chipTextActive: { color: "white" },
+  filterMore: { minHeight: 40, flexDirection: "row", gap: 6, alignItems: "center", borderRadius: 14, paddingHorizontal: 13, backgroundColor: Colors.paleTeal },
+  filterMoreText: { fontFamily: "sans-semibold", fontSize: 12, color: Colors.deepTeal },
+  filterPanel: { flexDirection: "row", gap: 12, flexWrap: "wrap", alignItems: "flex-end", borderRadius: 20, padding: 14, backgroundColor: Colors.muted },
+  results: { marginBottom: 10, fontFamily: "sans-semibold", fontSize: 12, color: Colors.mutedForeground },
+  emptyWrap: { flex: 1, justifyContent: "center", paddingHorizontal: 20 },
+});

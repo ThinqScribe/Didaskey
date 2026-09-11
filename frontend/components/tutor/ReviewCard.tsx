@@ -38,7 +38,7 @@ function initials(name: string): string {
 
 export default function ReviewCard({ review }: ReviewCardProps) {
   return (
-    <View className="bg-white rounded-2xl border border-border px-4 py-4 mb-3">
+    <View className="bg-card rounded-[22px] border border-border px-4 py-4 mb-3">
       <View className="flex-row items-center gap-3 mb-2">
         {/* Avatar */}
         <View className="w-9 h-9 rounded-full bg-deep-teal items-center justify-center">

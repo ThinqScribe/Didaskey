@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { clsx } from "clsx";
+import { Colors } from "@/constants";
 
 interface AuthInputProps extends TextInputProps {
   error?: string;
@@ -26,7 +27,7 @@ const AuthInput = forwardRef<TextInput, AuthInputProps>(
             <Ionicons
               name={icon}
               size={18}
-              color="rgba(39,43,45,0.4)"
+              color={Colors.mutedForeground}
               style={{ marginRight: 10 }}
             />
           )}
@@ -36,7 +37,7 @@ const AuthInput = forwardRef<TextInput, AuthInputProps>(
             secureTextEntry={isPassword ? hidden : false}
             autoCapitalize="none"
             autoCorrect={false}
-            placeholderTextColor="rgba(39,43,45,0.35)"
+            placeholderTextColor={Colors.mutedForeground}
             importantForAutofill="yes"
             {...props}
           />
@@ -48,7 +49,7 @@ const AuthInput = forwardRef<TextInput, AuthInputProps>(
               <Ionicons
                 name={hidden ? "eye-off-outline" : "eye-outline"}
                 size={20}
-                color="rgba(39,43,45,0.4)"
+                color={Colors.mutedForeground}
               />
             </Pressable>
           )}

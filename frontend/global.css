@@ -10,20 +10,20 @@
     --color-dark-emerald: #0E5E60;
     --color-teal: #17A389;
     --color-soft-mint: #8EEED0;
-    --color-warm-ivory: #F7F1E5;
-    --color-gold: #F2B544;
-    --color-charcoal: #272B2D;
+    --color-warm-ivory: #F8F3EA;
+    --color-gold: #D99A2B;
+    --color-charcoal: #1F2927;
     --color-white: #FFFFFF;
 
     /* ── Semantic tokens ── */
-    --color-background: #F7F1E5;
-    --color-foreground: #272B2D;
-    --color-card: #FFFFFF;
-    --color-muted: #EEE6D8;
-    --color-muted-foreground: rgba(39,43,45,0.55);
+    --color-background: #F8F3EA;
+    --color-foreground: #1F2927;
+    --color-card: #FFFCF7;
+    --color-muted: #EFE7DA;
+    --color-muted-foreground: #66706D;
     --color-primary: #0B3F43;
     --color-accent: #17A389;
-    --color-border: rgba(11,63,67,0.18);
+    --color-border: #DDD5C8;
     --color-success: #17A389;
     --color-destructive: #dc2626;
 
@@ -55,7 +55,8 @@
     --spacing-30: 120px;
 }
 
-@layer components {
+/* These named component classes stay unlayered so they can override the
+   baseline styles injected by react-native-web during hydration. */
 
     /* ─── Auth screens ─── */
 
@@ -68,12 +69,12 @@
     }
 
     .auth-content {
-        @apply px-6 pb-4 pt-4;
+        @apply w-full max-w-[480px] self-center px-6 pb-8 pt-4;
     }
 
     /* Brand block — tight, no extra gap */
     .auth-brand-block {
-        @apply items-center pb-2;
+        @apply items-center pb-3;
     }
 
     .auth-logo {
@@ -85,7 +86,7 @@
     }
 
     .auth-title {
-        @apply mt-3 text-[28px] font-sans-bold text-charcoal;
+        @apply mt-5 text-[30px] font-sans-bold text-charcoal;
     }
 
     .auth-subtitle {
@@ -107,7 +108,7 @@
 
     /* Full pill input wrap */
     .auth-input-wrap {
-        @apply flex-row items-center rounded-full border border-border bg-white px-5;
+        @apply flex-row items-center rounded-2xl border border-border bg-card px-5;
     }
 
     .auth-input-wrap-error {
@@ -129,7 +130,7 @@
 
     /* Primary button — full pill, deep teal */
     .auth-button {
-        @apply items-center rounded-full bg-deep-teal py-4;
+        @apply items-center rounded-2xl bg-deep-teal py-4;
     }
 
     .auth-button-disabled {
@@ -289,4 +290,3 @@
     .modal-body {
         @apply gap-5 p-5;
     }
-}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { apiClient } from "@/lib/api/client";
 import { Action, Card, ErrorNotice, Field, ui } from "@/components/ui/Workspace";
 import { getLearningItems, publishItem, reviewAssignment, submitAssignment, type ItemKind, type LearningItem } from "@/lib/api/learning";
@@ -7,6 +7,14 @@ import { extractErrorMessage } from "@/lib/api/auth";
 import { useAuthStore } from "@/lib/store/auth";
 import { UploadLessonFile, DownloadLessonFile } from "@/components/LessonFiles";
 import SharedWhiteboard from "@/components/SharedWhiteboard";
+import { Colors } from "@/constants";
+
+const toolTabs: { key: ItemKind; label: string; icon: string }[] = [
+  { key: "message", label: "Messages", icon: "💬" },
+  { key: "resource", label: "Materials", icon: "📚" },
+  { key: "assignment", label: "Practice", icon: "✏️" },
+  { key: "note", label: "Notes", icon: "📝" },
+];
 
 export default function LearningWorkspace({ bookingId, initialTab = "message" }: { bookingId: number; initialTab?: ItemKind }) {
   const user = useAuthStore(s => s.user);
@@ -51,8 +59,8 @@ export default function LearningWorkspace({ bookingId, initialTab = "message" }:
   }
   if (boardOpen) return <View style={{ gap: 16 }}><Action label="Back to learning tools" secondary onPress={() => setBoardOpen(false)} /><SharedWhiteboard bookingId={bookingId} /></View>;
   return <View style={{ gap: 16 }}>
-    <Action label="Open shared whiteboard" secondary onPress={() => setBoardOpen(true)} />
-    <View style={ui.row}>{([ ["message", "Messages"], ["resource", "Materials"], ["assignment", "Assignments"], ["note", "Notes"] ] as [ItemKind, string][]).map(([key, label]) => <Action key={key} label={label} secondary={tab !== key} onPress={() => setTab(key)} />)}</View>
+    <View style={styles.toolHeader}><View style={{ flex: 1 }}><Text style={styles.toolTitle}>Lesson workspace</Text><Text style={styles.toolSubtitle}>Everything for this lesson, kept together.</Text></View><Pressable accessibilityRole="button" onPress={() => setBoardOpen(true)} style={styles.boardButton}><Text style={styles.boardIcon}>✦</Text><Text style={styles.boardText}>Board</Text></Pressable></View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{toolTabs.map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }} onPress={() => setTab(item.key)} style={[styles.tab, tab === item.key && styles.tabActive]}><Text style={styles.tabIcon}>{item.icon}</Text><Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text></Pressable>)}</ScrollView>
     <ErrorNotice message={error} retry={load} />
     {teaching && tab === "resource" && <Card><UploadLessonFile bookingId={bookingId} reload={load} /></Card>}
     {loading ? <ActivityIndicator /> : items.filter(i => i.kind === tab).length === 0 ? <Card><Text style={ui.heading}>A fresh start</Text><Text style={ui.muted}>{tab === "message" ? "Send a message to prepare for your lesson. Your conversation stays available here." : "Your tutor will share learning activities here."}</Text></Card> : items.filter(i => i.kind === tab).map(item => <Card key={item.id}>
@@ -75,6 +83,21 @@ export default function LearningWorkspace({ bookingId, initialTab = "message" }:
     </Card>}
   </View>;
 }
+
+const styles = StyleSheet.create({
+  toolHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  toolTitle: { fontFamily: "sans-bold", fontSize: 20, letterSpacing: -0.35, color: Colors.foreground },
+  toolSubtitle: { marginTop: 3, fontFamily: "sans-regular", fontSize: 12, color: Colors.mutedForeground },
+  boardButton: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 7, borderRadius: 15, paddingHorizontal: 14, backgroundColor: Colors.deepTeal },
+  boardIcon: { fontSize: 17, color: Colors.softMint },
+  boardText: { fontFamily: "sans-bold", fontSize: 12, color: "white" },
+  tabs: { gap: 8, paddingRight: 10 },
+  tab: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, borderRadius: 15, paddingHorizontal: 13, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  tabActive: { backgroundColor: Colors.paleTeal, borderColor: "#B7DCCF" },
+  tabIcon: { fontSize: 14 },
+  tabText: { fontFamily: "sans-semibold", fontSize: 12, color: Colors.mutedForeground },
+  tabTextActive: { color: Colors.deepTeal },
+});
 
 function Assignment({ item, teaching, reload }: { item: LearningItem; teaching: boolean; reload: () => Promise<void> }) {
   const [body, setBody] = useState(item.submission?.body ?? "");

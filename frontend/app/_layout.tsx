@@ -6,6 +6,7 @@ import { Action, ui } from "@/components/ui/Workspace";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import "@/global.css";
+import { Colors } from "@/constants";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -37,7 +38,7 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
-  if (status === "loading" || status === "offline") return <View style={{ flex: 1, backgroundColor: "#F7F1E5", alignItems: "center", justifyContent: "center", padding: 28, gap: 20 }}>
+  if (status === "loading" || status === "offline") return <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: "center", justifyContent: "center", padding: 28, gap: 20 }}>
     {status === "loading" ? <ActivityIndicator color="#0B3F43" /> : <><Text style={ui.heading}>Let’s reconnect</Text><Text style={ui.text}>We could not check your session. Your saved sign-in is still here.</Text><Action label="Try again" onPress={() => { void bootstrap(); }} /><Action label="Sign out" secondary onPress={() => { void signOut(); }} /></>}
   </View>;
 
@@ -45,7 +46,7 @@ export default function RootLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#F7F1E5" },
+        contentStyle: { backgroundColor: Colors.background },
       }}
     >
       {/* Classroom screens are dark — override the warm-ivory background */}

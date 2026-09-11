@@ -17,6 +17,7 @@ import AuthButton from "@/components/AuthButton";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { EducationLevel } from "@/lib/api/auth";
 import { Action } from "@/components/ui/Workspace";
+import { Colors } from "@/constants";
 
 // ── Education levels config ───────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ export default function SignUp() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F1E5" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
       {/* Top bar */}
       <View style={{
         flexDirection: "row",

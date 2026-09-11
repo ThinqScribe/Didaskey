@@ -11,7 +11,7 @@ interface SearchBarProps {
 
 export default function SearchBar({ placeholder = "Search tutors or subjects", value, onChangeText, onPress }: SearchBarProps) {
   const inner = (
-    <View className="flex-row items-center bg-white rounded-full border border-[#F7F3E9] px-5 h-12 gap-2">
+    <View className="flex-row items-center bg-card rounded-[18px] border border-border px-4 h-14 gap-3">
       <Ionicons name="search-outline" size={18} color={Colors.mutedForeground} />
       <TextInput
         editable={!onPress}

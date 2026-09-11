@@ -1,8 +1,8 @@
 export const TabBar = {
-  height:          64,
-  radius:          32,
-  iconFrame:       42,
-  horizontalInset: 20,
+  height:          70,
+  radius:          24,
+  iconFrame:       38,
+  horizontalInset: 14,
 } as const;
 
 export const Spacing = {

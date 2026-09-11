@@ -13,6 +13,7 @@ Scope: pre-varsity students, tutors, and administrators. No parent experience or
 - [x] Persistent message read receipts and retry-safe publishing
 - [x] Protected PDF/image lesson uploads and downloads
 - [x] Shared whiteboard with saved strokes, undo and tutor clearing
+- [x] Refurbished frontend information architecture, labeled navigation and role-specific dashboards; see `frontend/UI_FLOW.md`
 - [ ] Real-provider payment, email and classroom acceptance testing
 - [ ] Physical-device and responsive visual/accessibility acceptance testing
 - [ ] Production deployment and operational sign-off
@@ -40,11 +41,11 @@ Push reminders and automated payouts remain unfinished. Payouts need approved co
 ## Latest verification and environment audit
 
 - Backend suite: 28 passing tests, including booking notifications, rescheduling, private file access, whiteboard permissions, read receipts and recovery from partially created database schemas.
-- TypeScript, lint and web export passed with file tools and shared whiteboard included.
+- TypeScript, lint and the 47-route web export pass after the interface refurbishment. The sign-in and pre-varsity sign-up flows were also rendered and checked at a 430 × 932 mobile browser viewport.
 - npm audit reports 22 moderate upstream advisories, including decode-uri-component and uuid. No forced fix was applied: the proposed change downgrades Expo incompatibly. These remain release risks.
 - Local provider credentials exist, Paystack uses test mode, and the database is SQLite. This does not verify provider connectivity or production readiness.
 - Corrected backend FRONTEND_URL from the API port to the local Expo port 8081 and disabled the availability bypass. The LAN address must match the machine running Expo. Production domains, support email, deployment target and push/release credentials are not configured.
-- The local working database is now migrated through `0009_shared_whiteboard`. A backup is retained in `backend/migration-backup.4PwfEn/before.db` (excluded from Git). Migrations passed on a copy before the working database was changed; SQLite integrity, existing table row counts and the full User model query passed afterward. Migration helpers validate and adopt compatible tables left by legacy create_all startup. SQLite migrations now use its synchronous driver. Startup no longer silently creates a partial schema and reports an actionable error if token_version is missing. Browser/device acceptance testing remains incomplete.
+- The local working database is now migrated through `0009_shared_whiteboard`. A backup is retained in `backend/migration-backup.4PwfEn/before.db` (excluded from Git). Migrations passed on a copy before the working database was changed; SQLite integrity, existing table row counts and the full User model query passed afterward. Migration helpers validate and adopt compatible tables left by legacy create_all startup. SQLite migrations now use its synchronous driver. Startup no longer silently creates a partial schema and reports an actionable error if token_version is missing. Authenticated browser and physical-device acceptance testing remain incomplete.
 
 ## Runbook
 

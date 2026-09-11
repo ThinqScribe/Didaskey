@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { router } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import { useAuthStore } from "@/lib/store/auth";
+import { Colors } from "@/constants";
 
 export default function Index() {
   const { status, user } = useAuthStore();
@@ -43,7 +44,7 @@ export default function Index() {
   }, [status, user?.role]);
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F7F1E5" }}>
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background }}>
       <ActivityIndicator size="large" color="#17A389" />
     </View>
   );

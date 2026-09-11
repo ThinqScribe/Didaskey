@@ -101,11 +101,13 @@ function BookingCard({
   onCancel,
   onPay,
   paying,
+  cancelling,
 }: {
   booking: BookingResponse;
   onCancel: (id: number) => void;
   onPay: (id: number) => void;
   paying: boolean;
+  cancelling: boolean;
 }) {
   const dateLabel = formatBookingDate(booking.scheduled_at);
 
@@ -135,7 +137,7 @@ function BookingCard({
   });
 
   return (
-    <View className="bg-white rounded-tr-2xl rounded-bl-2xl border border-border px-4 py-4 mb-3">
+    <View className="bg-card rounded-[24px] border border-border px-4 py-4 mb-3" style={{ shadowColor: Colors.deepTeal, shadowOpacity: 0.035, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 1 }}>
       {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center gap-2">
@@ -275,6 +277,7 @@ function BookingCard({
 
           {canCancel && (
             <Pressable
+              disabled={cancelling}
               onPress={() =>
                 Alert.alert(
                   "Cancel booking?",
@@ -290,11 +293,15 @@ function BookingCard({
                 )
               }
               hitSlop={8}
-              className="rounded-full border border-border px-3 py-1.5 active:opacity-70"
+              className="rounded-full border border-border px-3 py-1.5 active:opacity-70 disabled:opacity-50"
             >
-              <Text className="text-[12px] font-sans-semibold text-destructive">
-                Cancel
-              </Text>
+              {cancelling ? (
+                <ActivityIndicator size="small" color={Colors.destructive} />
+              ) : (
+                <Text className="text-[12px] font-sans-semibold text-destructive">
+                  Cancel
+                </Text>
+              )}
             </Pressable>
           )}
         </View>
@@ -524,7 +531,7 @@ export default function BookingsScreen() {
       {/* ─────────────────────────────────────────────────────────────── */}
 
       <View onLayout={onHeaderLayout}>
-        <View className="px-6 pt-5 pb-4">
+        <View className="px-6 pt-5 pb-4" style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
           <View className="flex-row items-start justify-between">
             <View>
               <Text className="text-[12px] font-sans-bold text-teal uppercase">
@@ -560,7 +567,7 @@ export default function BookingsScreen() {
         </View>
 
         {/* Status Tabs */}
-        <View className="px-6 pb-4">
+        <View className="px-6 pb-4" style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
           <Text className="text-[11px] font-sans-bold text-muted-foreground uppercase mb-2">
             Filter sessions
           </Text>
@@ -576,16 +583,13 @@ export default function BookingsScreen() {
               return (
                 <Pressable
                   onPress={() => setActiveTab(item.value)}
-                  className={`px-1 mr-5 pb-2 border-b-2 ${
-                    active
-                      ? "border-teal"
-                      : "border-transparent"
-                  }`}
+                  className="px-4 mr-2 py-2.5 rounded-[14px] border"
+                  style={{ backgroundColor: active ? Colors.deepTeal : Colors.card, borderColor: active ? Colors.deepTeal : Colors.border }}
                 >
                   <Text
                     className={`text-[12px] font-sans-bold ${
                       active
-                        ? "text-deep-teal"
+                        ? "text-white"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -664,6 +668,9 @@ export default function BookingsScreen() {
             paddingHorizontal: Spacing.xl,
             paddingTop: Spacing.base,
             paddingBottom: listBottomPadding,
+            width: "100%",
+            maxWidth: 760,
+            alignSelf: "center",
           }}
           scrollIndicatorInsets={{
             bottom: listBottomPadding,
@@ -671,13 +678,10 @@ export default function BookingsScreen() {
           renderItem={({ item }) => (
             <BookingCard
               booking={item}
-              onCancel={
-                cancelling === null
-                  ? handleCancel
-                  : () => {}
-              }
+              onCancel={handleCancel}
               onPay={handlePay}
               paying={paying === item.id}
+              cancelling={cancelling === item.id}
             />
           )}
         />

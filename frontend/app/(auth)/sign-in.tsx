@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "@/constants";
 import { router } from "expo-router";
 
 import AuthBrand from "@/components/AuthBrand";
@@ -26,7 +27,7 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F1E5" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -43,7 +44,7 @@ export default function SignIn() {
               subtitle="Sign in to continue your learning journey."
             />
 
-            <View className="mt-8 gap-3">
+            <View className="mt-8 gap-3 rounded-[28px] border border-border bg-card p-5">
               <AuthInput
                 icon="mail-outline"
                 placeholder="Email Address"
@@ -74,7 +75,7 @@ export default function SignIn() {
               </Pressable>
             </View>
 
-            <View className="mt-6">
+            <View className="mt-4">
               <AuthButton
                 label="Sign In"
                 loading={loading}

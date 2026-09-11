@@ -17,14 +17,15 @@ import { useRefresh } from "@/lib/hooks/useRefresh";
 import { formatCurrency, formatBookingDate, type BookingResponse } from "@/lib/api/bookings";
 import { getMyTutorProfile, listTutorBookings, getTutorStats, type TutorStats } from "@/lib/api/tutor-portal";
 import type { TutorDetail } from "@/lib/api/tutors";
+import QuickLinks from "@/components/QuickLinks";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function WeekStatCard({ value, label }: { value: string; label: string }) {
   return (
-    <View className="flex-1 items-center py-3">
-      <Text className="text-[17px] font-sans-bold text-white">{value}</Text>
-      <Text className="text-[10px] font-sans-medium mt-0.5" style={{ color: `${Colors.softMint}99` }}>
+    <View style={{ width: "48%", padding: 13, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.08)" }}>
+      <Text className="text-[19px] font-sans-bold text-white">{value}</Text>
+      <Text className="text-[11px] font-sans-medium mt-1" style={{ color: "#B9D9D3" }}>
         {label}
       </Text>
     </View>
@@ -40,7 +41,7 @@ function UpcomingCard({ booking }: { booking: BookingResponse }) {
 
   return (
     <View className="flex-row items-center py-3 border-b border-border">
-      <View className="w-8 h-8 rounded-tr-xl rounded-bl-xl bg-muted items-center justify-center mr-3">
+      <View className="w-9 h-9 rounded-[13px] bg-muted items-center justify-center mr-3">
         <Ionicons name="school-outline" size={15} color={Colors.deepTeal} />
       </View>
       <View className="flex-1">
@@ -125,15 +126,6 @@ export default function TutorDashboard() {
     .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())
     .slice(0, 3);
 
-  const weekEarnings = bookings
-    .filter((b) => {
-      if (b.status !== "completed") return false;
-      const d = new Date(b.scheduled_at);
-      const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
-      return diff <= 7;
-    })
-    .reduce((s, b) => s + parseFloat(b.amount), 0);
-
   const totalMinutes = bookings
     .filter((b) => b.status === "completed")
     .reduce((s, b) => s + b.duration_minutes, 0);
@@ -158,6 +150,9 @@ export default function TutorDashboard() {
           paddingHorizontal: Spacing.xl,
           paddingTop: Spacing.base,
           paddingBottom: TabBar.height + TabBar.horizontalInset + Spacing.xl,
+          width: "100%",
+          maxWidth: 760,
+          alignSelf: "center",
         }}
       >
         {/* Header */}
@@ -166,8 +161,8 @@ export default function TutorDashboard() {
     {/* Profile Info */}
     <View className="flex-1 flex-row items-center">
       {/* Avatar */}
-      <View className="w-12 h-12 rounded-full bg-lightTeal items-center justify-center mr-3">
-        <Text className="text-[17px] font-sans-bold text-deepTeal">
+      <View className="w-12 h-12 rounded-[16px] items-center justify-center mr-3" style={{ backgroundColor: Colors.paleTeal }}>
+        <Text className="text-[17px] font-sans-bold text-deep-teal">
           {(profile?.display_name ??
             `${user?.first_name} ${user?.last_name}`)
             .charAt(0)
@@ -176,7 +171,7 @@ export default function TutorDashboard() {
       </View>
 
       <View className="flex-1">
-        <Text className="text-[12px] font-sans-medium text-gray-500 mb-0.5">
+        <Text className="text-[12px] font-sans-medium text-muted-foreground mb-0.5">
           Welcome back 👋
         </Text>
 
@@ -197,7 +192,7 @@ export default function TutorDashboard() {
 
           {profile?.verification_status === "verified" && (
             <>
-              <View className="w-1 h-1 rounded-full bg-gray-300 mx-2" />
+              <View className="w-1 h-1 rounded-full bg-border mx-2" />
 
               <Ionicons
                 name="shield-checkmark"
@@ -216,8 +211,8 @@ export default function TutorDashboard() {
 
     {/* Notifications */}
     <Pressable
-      onPress={() => router.push("/(tutor)/profile")}
-      className="w-11 h-11 rounded-full bg-white border border-gray-100 items-center justify-center"
+      onPress={() => router.push("/notifications")}
+      className="w-11 h-11 rounded-[16px] bg-card border border-border items-center justify-center"
       style={{
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -238,23 +233,22 @@ export default function TutorDashboard() {
   </View>
 </View>
 
+        <View className="mb-5"><QuickLinks /></View>
+
         {/* Week overview banner */}
-        <View className="rounded-tr-3xl rounded-bl-3xl px-5 py-4 mb-5"
+        <View className="rounded-[28px] px-5 py-5 mb-5"
           style={{ backgroundColor: Colors.deepTeal }}>
           <Text className="text-[11px] font-sans-bold uppercase mb-3"
             style={{ color: `${Colors.softMint}80` }}>
             Your Teaching Overview
           </Text>
-          <View className="flex-row">
+          <View className="flex-row flex-wrap" style={{ gap: 10 }}>
             <WeekStatCard value={String(stats?.total_sessions ?? 0)} label="Sessions" />
-            <View className="w-px bg-white/10" />
             <WeekStatCard value={String(stats?.completed_sessions ?? 0)} label="Completed" />
-            <View className="w-px bg-white/10" />
             <WeekStatCard value={hoursLabel} label="Time Taught" />
-            <View className="w-px bg-white/10" />
             <WeekStatCard
-              value={formatCurrency(weekEarnings, profile?.currency ?? "NGN", 0)}
-              label="Earnings"
+              value={formatCurrency(parseFloat(stats?.total_earnings ?? "0"), stats?.currency ?? profile?.currency ?? "NGN", 0)}
+              label="Gross earned"
             />
           </View>
         </View>
@@ -267,7 +261,7 @@ export default function TutorDashboard() {
           </Pressable>
         </View>
 
-        <View className="bg-white rounded-xl px-4 mb-5"
+        <View className="bg-card rounded-[24px] px-4 mb-5"
           style={{ borderWidth: 1, borderColor: Colors.border }}>
           {upcoming.length === 0 ? (
             <View className="items-center py-6">
@@ -292,7 +286,7 @@ export default function TutorDashboard() {
           </Pressable>
         </View>
 
-        <View className="bg-white rounded-2xl px-4 mb-5"
+        <View className="bg-card rounded-[24px] px-4 mb-5"
           style={{ borderWidth: 1, borderColor: Colors.border }}>
           {recentCompleted.length === 0 ? (
             <View className="items-center py-6">

@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { verifyEmail, extractErrorMessage } from "@/lib/api/auth";
 import { Action, Card, ErrorNotice, Page, ui } from "@/components/ui/Workspace";
+import { Colors } from "@/constants";
 
 const RESEND_COOLDOWN = 45;
 
@@ -61,7 +62,7 @@ export default function VerifyEmail() {
   if (token) return <Page title="Verify your email"><Card><Text style={ui.text}>{verified ? "Your email is verified. You can now sign in." : "Confirm your email address to start learning on Didaskey."}</Text><ErrorNotice message={verificationError} /><Action label={verified ? "Sign in" : "Verify email"} busy={verifying} onPress={verified ? () => router.replace("/(auth)/sign-in") : confirmEmail} /></Card></Page>;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F1E5" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
 
       <Pressable
         onPress={() => router.back()}
