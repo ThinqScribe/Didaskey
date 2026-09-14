@@ -86,7 +86,7 @@
     }
 
     .auth-title {
-        @apply mt-5 text-[30px] font-sans-bold text-charcoal;
+        @apply mt-5 text-center text-[32px] font-sans-bold text-charcoal;
     }
 
     .auth-subtitle {
@@ -108,11 +108,11 @@
 
     /* Full pill input wrap */
     .auth-input-wrap {
-        @apply flex-row items-center rounded-2xl border border-border bg-card px-5;
+        @apply h-14 flex-row items-center rounded-full bg-muted px-5;
     }
 
     .auth-input-wrap-error {
-        @apply border-destructive;
+        @apply border border-destructive bg-white;
     }
 
     .auth-input {
@@ -125,12 +125,12 @@
 
     /* Forgot password */
     .auth-forgot {
-        @apply self-end text-sm font-sans-semibold text-[#0E5E60];
+        @apply self-end text-sm font-sans-bold text-deep-teal;
     }
 
     /* Primary button — full pill, deep teal */
     .auth-button {
-        @apply items-center rounded-2xl bg-deep-teal py-4;
+        @apply h-14 items-center justify-center rounded-full bg-deep-teal px-6;
     }
 
     .auth-button-disabled {
@@ -143,7 +143,7 @@
 
     /* Secondary / outline button — full pill */
     .auth-secondary-button {
-        @apply items-center rounded-full border border-border bg-white py-4;
+        @apply h-14 items-center justify-center rounded-full bg-muted px-6;
     }
 
     .auth-secondary-button-text {

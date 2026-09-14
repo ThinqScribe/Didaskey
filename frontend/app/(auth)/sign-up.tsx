@@ -1,22 +1,19 @@
 import React, { useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import AuthBrand from "@/components/AuthBrand";
 import AuthInput from "@/components/AuthInput";
 import AuthButton from "@/components/AuthButton";
+import AuthShell from "@/components/AuthShell";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type { EducationLevel } from "@/lib/api/auth";
-import { Action } from "@/components/ui/Workspace";
 import { Colors } from "@/constants";
 
 // ── Education levels config ───────────────────────────────────────────────────
@@ -37,8 +34,8 @@ const EDUCATION_LEVELS: {
 function PasswordRule({ met, label }: { met: boolean; label: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-      <Ionicons name="checkmark-circle" size={14} color={met ? "#17A389" : "rgba(39,43,45,0.25)"} />
-      <Text style={{ fontSize: 12, fontFamily: "sans-medium", color: met ? "#17A389" : "rgba(39,43,45,0.45)" }}>
+      <Ionicons name="checkmark-circle" size={14} color={met ? Colors.teal : "rgba(7,29,58,0.24)"} />
+      <Text style={{ fontSize: 12, fontFamily: "sans-medium", color: met ? Colors.deepTeal : Colors.mutedForeground }}>
         {label}
       </Text>
     </View>
@@ -62,41 +59,42 @@ function EducationDropdown({
         style={{
           flexDirection: "row",
           alignItems: "center",
-          backgroundColor: "#fff",
+          backgroundColor: Colors.muted,
           borderRadius: 999,
-          borderWidth: 1,
-          borderColor: "rgba(11,63,67,0.18)",
           paddingHorizontal: 20,
-          height: 52,
+          height: 56,
         }}
       >
-        <Ionicons name="school-outline" size={18} color="rgba(39,43,45,0.4)" style={{ marginRight: 10 }} />
+        <Ionicons name="school-outline" size={18} color={Colors.deepTeal} style={{ marginRight: 10, opacity: 0.72 }} />
         <View style={{ flex: 1 }}>
           {selected ? (
-            <Text style={{ fontSize: 14, fontFamily: "sans-semibold", color: "#0B3F43" }}>
+            <Text style={{ fontSize: 14, fontFamily: "sans-semibold", color: Colors.deepTeal }}>
               {selected.label}
             </Text>
           ) : (
-            <Text style={{ fontSize: 14, fontFamily: "sans-medium", color: "rgba(39,43,45,0.35)" }}>
+            <Text style={{ fontSize: 14, fontFamily: "sans-medium", color: Colors.mutedForeground }}>
               Education Level
             </Text>
           )}
         </View>
-        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color="rgba(39,43,45,0.5)" />
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={Colors.deepTeal} />
       </Pressable>
 
       {open && (
         <View style={{
-          marginTop: 4,
+          marginTop: 8,
           backgroundColor: "#fff",
           borderRadius: 16,
-          borderWidth: 1,
-          borderColor: "rgba(11,63,67,0.12)",
           overflow: "hidden",
           maxHeight: 240,
+          shadowColor: Colors.deepTeal,
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 4,
         }}>
           <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {EDUCATION_LEVELS.map((level, i) => (
+            {EDUCATION_LEVELS.map((level) => (
               <Pressable
                 key={level.value}
                 onPress={() => { onChange(level.value); setOpen(false); }}
@@ -106,16 +104,14 @@ function EducationDropdown({
                   gap: 12,
                   paddingHorizontal: 20,
                   paddingVertical: 14,
-                  borderTopWidth: i === 0 ? 0 : 1,
-                  borderTopColor: "rgba(11,63,67,0.08)",
-                  backgroundColor: value === level.value ? "rgba(23,163,137,0.06)" : "#fff",
+                  backgroundColor: value === level.value ? Colors.paleTeal : "#fff",
                 }}
               >
-                <Ionicons name={level.icon} size={18} color={value === level.value ? "#17A389" : "#0B3F43"} />
+                <Ionicons name={level.icon} size={18} color={value === level.value ? Colors.teal : Colors.deepTeal} />
                 <Text style={{
                   fontSize: 14,
                   fontFamily: value === level.value ? "sans-semibold" : "sans-medium",
-                  color: value === level.value ? "#17A389" : "#272B2D",
+                  color: value === level.value ? Colors.deepTeal : Colors.foreground,
                 }}>
                   {level.label}
                 </Text>
@@ -170,87 +166,85 @@ export default function SignUp() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      {/* Top bar */}
-      <View style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-        paddingTop: 8,
-        paddingBottom: 4,
-      }}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={22} color="#272B2D" />
-        </Pressable>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: "rgba(39,43,45,0.6)" }}>
-            Already have an account?
-          </Text>
-          <Pressable onPress={() => router.replace("/(auth)/sign-in")}>
-            <Text style={{ fontSize: 13, fontFamily: "sans-bold", color: "#17A389" }}>Sign in</Text>
-          </Pressable>
+    <AuthShell
+      back
+      topLink={{ label: "Already have an account?", action: "Sign in", href: "/(auth)/sign-in", replace: true }}
+    >
+      <AuthBrand title="Create your account" subtitle="Start your learning journey with Didaskey." />
+
+      <View style={styles.rolePicker}>
+        {(["student", "tutor"] as const).map(item => {
+          const active = role === item;
+          return (
+            <Pressable
+              key={item}
+              accessibilityRole="button"
+              onPress={() => setRole(item)}
+              style={[styles.roleButton, active && styles.roleButtonActive]}
+            >
+              <Ionicons name={item === "student" ? "school-outline" : "briefcase-outline"} size={17} color={active ? "#FFFFFF" : Colors.deepTeal} />
+              <Text style={[styles.roleText, active && styles.roleTextActive]}>{item === "student" ? "Student" : "Tutor"}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.form}>
+        <View style={styles.nameRow}>
+          <View style={{ flex: 1 }}>
+            <AuthInput icon="person-outline" placeholder="First Name" value={firstName}
+              onChangeText={(v) => { clearError(); setFirstName(v); }} autoComplete="given-name" textContentType="givenName" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AuthInput placeholder="Last Name" value={lastName}
+              onChangeText={(v) => { clearError(); setLastName(v); }} autoComplete="family-name" textContentType="familyName" />
+          </View>
+        </View>
+        <AuthInput icon="mail-outline" placeholder="Email address" value={email}
+          onChangeText={(v) => { clearError(); setEmail(v); }} keyboardType="email-address" autoComplete="email" autoCapitalize="none" />
+        <AuthInput icon="call-outline" placeholder="+1234567890" value={phone}
+          onChangeText={(v) => { clearError(); setPhone(v); }} keyboardType="phone-pad" autoComplete="tel" />
+        <AuthInput icon="lock-closed-outline" placeholder="Password" value={password}
+          onChangeText={(v) => { clearError(); setPassword(v); }} isPassword autoComplete="new-password" />
+
+        {role === "student" && <EducationDropdown value={educationLevel} onChange={setEducationLevel} />}
+
+        {error && <Text style={styles.error}>{error}</Text>}
+
+        <View style={styles.rules}>
+          <PasswordRule met={rules.length} label="At least 8 characters" />
+          <PasswordRule met={rules.upper} label="One uppercase letter" />
+          <PasswordRule met={rules.number} label="One number" />
         </View>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="auth-content">
+      <View style={styles.submit}>
+        <AuthButton label="Create Account" loading={loading} disabled={!canSubmit} onPress={handleSignUp} />
+      </View>
 
-            <AuthBrand title="Create your account" subtitle="Start your learning journey with Didaskey." />
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 20 }}>
-              <Action label="I’m a student" secondary={role !== "student"} onPress={() => setRole("student")} />
-              <Action label="I’m a tutor" secondary={role !== "tutor"} onPress={() => setRole("tutor")} />
-            </View>
-
-            <View style={{ marginTop: 24, gap: 10 }}>
-              {/* First name + Last name side by side */}
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <AuthInput icon="person-outline" placeholder="First Name" value={firstName}
-                    onChangeText={(v) => { clearError(); setFirstName(v); }} autoComplete="given-name" textContentType="givenName" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <AuthInput placeholder="Last Name" value={lastName}
-                    onChangeText={(v) => { clearError(); setLastName(v); }} autoComplete="family-name" textContentType="familyName" />
-                </View>
-              </View>
-              <AuthInput icon="mail-outline" placeholder="Email Address" value={email}
-                onChangeText={(v) => { clearError(); setEmail(v); }} keyboardType="email-address" autoComplete="email" autoCapitalize="none" />
-              <AuthInput icon="call-outline" placeholder="+1234567890 (include country code)" value={phone}
-                onChangeText={(v) => { clearError(); setPhone(v); }} keyboardType="phone-pad" autoComplete="tel" />
-              <AuthInput icon="lock-closed-outline" placeholder="Password" value={password}
-                onChangeText={(v) => { clearError(); setPassword(v); }} isPassword autoComplete="new-password" />
-
-              {role === "student" && <EducationDropdown value={educationLevel} onChange={setEducationLevel} />}
-
-              {/* Error message */}
-              {error && (
-                <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: "#dc2626", paddingHorizontal: 4 }}>
-                  {error}
-                </Text>
-              )}
-
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 4, paddingTop: 2 }}>
-                <PasswordRule met={rules.length} label="At least 8 characters" />
-                <PasswordRule met={rules.upper} label="One uppercase letter" />
-                <PasswordRule met={rules.number} label="One number" />
-              </View>
-            </View>
-
-            <View style={{ marginTop: 20 }}>
-              <AuthButton label="Create Account →" loading={loading} disabled={!canSubmit} onPress={handleSignUp} />
-            </View>
-
-            <Text style={{ textAlign: "center", color: "#62685F", marginTop: 20 }}>Personal learning for primary and secondary school students.</Text>
-
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <Text style={styles.footerCopy}>Personal learning for primary and secondary school students.</Text>
+    </AuthShell>
   );
 }
+
+const styles = StyleSheet.create({
+  rolePicker: { flexDirection: "row", gap: 10, marginTop: 24 },
+  roleButton: { flex: 1, height: 50, borderRadius: 999, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.muted },
+  roleButtonActive: { backgroundColor: Colors.deepTeal },
+  roleText: { fontFamily: "sans-bold", fontSize: 13, color: Colors.deepTeal },
+  roleTextActive: { color: "#FFFFFF" },
+  form: { marginTop: 18, gap: 11 },
+  nameRow: { flexDirection: "row", gap: 10 },
+  rules: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 4, paddingTop: 2 },
+  submit: { marginTop: 20 },
+  error: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "#FFECEA",
+    color: Colors.destructive,
+    fontFamily: "sans-semibold",
+    fontSize: 13,
+  },
+  footerCopy: { textAlign: "center", color: Colors.mutedForeground, fontFamily: "sans-medium", fontSize: 13, lineHeight: 20, marginTop: 20 },
+});

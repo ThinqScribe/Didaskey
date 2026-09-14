@@ -27,8 +27,8 @@ const AuthInput = forwardRef<TextInput, AuthInputProps>(
             <Ionicons
               name={icon}
               size={18}
-              color={Colors.mutedForeground}
-              style={{ marginRight: 10 }}
+              color={Colors.deepTeal}
+              style={{ marginRight: 11, opacity: 0.72 }}
             />
           )}
           <TextInput
@@ -49,7 +49,8 @@ const AuthInput = forwardRef<TextInput, AuthInputProps>(
               <Ionicons
                 name={hidden ? "eye-off-outline" : "eye-outline"}
                 size={20}
-                color={Colors.mutedForeground}
+                color={Colors.deepTeal}
+                style={{ opacity: 0.62 }}
               />
             </Pressable>
           )}

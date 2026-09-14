@@ -1,20 +1,13 @@
 import React, { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "@/constants";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 
 import AuthBrand from "@/components/AuthBrand";
 import AuthInput from "@/components/AuthInput";
 import AuthButton from "@/components/AuthButton";
+import AuthShell from "@/components/AuthShell";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { Colors } from "@/constants";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -27,73 +20,69 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="auth-content">
+    <AuthShell>
+      <AuthBrand
+        title="Welcome back"
+        subtitle="Sign in to continue your learning journey."
+      />
 
-            <AuthBrand
-              title="Welcome back"
-              subtitle="Sign in to continue your learning journey."
-            />
+      <View style={styles.form}>
+        <AuthInput
+          icon="mail-outline"
+          placeholder="Email address"
+          value={email}
+          onChangeText={(v) => { clearError(); setEmail(v); }}
+          keyboardType="email-address"
+          autoComplete="email"
+          autoCapitalize="none"
+        />
+        <AuthInput
+          icon="lock-closed-outline"
+          placeholder="Password"
+          value={password}
+          onChangeText={(v) => { clearError(); setPassword(v); }}
+          isPassword
+          autoComplete="current-password"
+        />
 
-            <View className="mt-8 gap-3 rounded-[28px] border border-border bg-card p-5">
-              <AuthInput
-                icon="mail-outline"
-                placeholder="Email Address"
-                value={email}
-                onChangeText={(v) => { clearError(); setEmail(v); }}
-                keyboardType="email-address"
-                autoComplete="email"
-                autoCapitalize="none"
-              />
-              <AuthInput
-                icon="lock-closed-outline"
-                placeholder="Password"
-                value={password}
-                onChangeText={(v) => { clearError(); setPassword(v); }}
-                isPassword
-                autoComplete="current-password"
-              />
+        {error && <Text style={styles.error}>{error}</Text>}
 
-              {/* Error message */}
-              {error && (
-                <Text style={{ fontSize: 13, fontFamily: "sans-medium", color: "#dc2626", paddingHorizontal: 4 }}>
-                  {error}
-                </Text>
-              )}
+        <Pressable onPress={() => router.push("/(auth)/forgot-password")} style={styles.forgot}>
+          <Text className="auth-forgot">Forgot password?</Text>
+        </Pressable>
+      </View>
 
-              <Pressable onPress={() => router.push("/(auth)/forgot-password")} className="self-end">
-                <Text className="auth-forgot">Forgot password?</Text>
-              </Pressable>
-            </View>
+      <View style={styles.submit}>
+        <AuthButton
+          label="Sign In"
+          loading={loading}
+          disabled={!email || !password}
+          onPress={handleSignIn}
+        />
+      </View>
 
-            <View className="mt-4">
-              <AuthButton
-                label="Sign In"
-                loading={loading}
-                disabled={!email || !password}
-                onPress={handleSignIn}
-              />
-            </View>
-
-            <View className="auth-link-row mt-8">
-              <Text className="auth-link-copy">Don&apos;t have an account?</Text>
-              <Pressable onPress={() => router.push("/(auth)/sign-up")}>
-                <Text className="auth-link"> Sign up</Text>
-              </Pressable>
-            </View>
-
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <View className="auth-link-row" style={styles.linkRow}>
+        <Text className="auth-link-copy">Don&apos;t have an account?</Text>
+        <Pressable onPress={() => router.push("/(auth)/sign-up")}>
+          <Text className="auth-link"> Sign up</Text>
+        </Pressable>
+      </View>
+    </AuthShell>
   );
 }
+
+const styles = StyleSheet.create({
+  form: { marginTop: 30, gap: 12 },
+  submit: { marginTop: 18 },
+  forgot: { alignSelf: "flex-end", paddingTop: 2, paddingHorizontal: 4 },
+  error: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "#FFECEA",
+    color: Colors.destructive,
+    fontFamily: "sans-semibold",
+    fontSize: 13,
+  },
+  linkRow: { marginTop: 30 },
+});

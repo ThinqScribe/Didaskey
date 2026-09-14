@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   RefreshControl,
@@ -811,6 +812,14 @@ export default function MessagesScreen() {
     await loadThread(conversation);
   }
 
+  const closeConversation = useCallback(() => {
+    setActive(null);
+    setReplyTo(null);
+    setEditingMessage(null);
+    setActionMessageKey(null);
+    setPendingAttachments([]);
+  }, []);
+
   function clearSendTracking(clientId?: string | null) {
     if (!clientId) return;
     delete failedSendPlans.current[clientId];
@@ -1163,6 +1172,20 @@ export default function MessagesScreen() {
   }
 
   const refreshing = loading || threadLoading;
+  const threadSwipeResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponderCapture: (_event, gesture) => {
+      if (!active) return false;
+      const startedAtLeftEdge = gesture.x0 <= 44;
+      const movingRight = gesture.dx > 22;
+      const mostlyHorizontal = Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.35;
+      return startedAtLeftEdge && movingRight && mostlyHorizontal;
+    },
+    onPanResponderRelease: (_event, gesture) => {
+      const completedSwipe = gesture.dx > 82 && Math.abs(gesture.dy) < 70;
+      if (completedSwipe) closeConversation();
+    },
+  }), [active, closeConversation]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -1285,9 +1308,9 @@ export default function MessagesScreen() {
             </ScrollView>
           </>
         ) : (
-          <>
+          <View style={styles.threadRoot} {...threadSwipeResponder.panHandlers}>
             <View style={styles.threadHeader}>
-              <Pressable accessibilityRole="button" onPress={() => setActive(null)} style={styles.threadBack}>
+              <Pressable accessibilityRole="button" onPress={closeConversation} style={styles.threadBack}>
                 <Ionicons name="chevron-back" size={33} color={NAVY} />
               </Pressable>
               <ConversationAvatar name={active.counterpart} support={isSupportConversation(active)} size={56} />
@@ -1400,7 +1423,7 @@ export default function MessagesScreen() {
                 </Pressable>
               </View>
             </View>
-          </>
+          </View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1410,6 +1433,7 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   keyboard: { flex: 1 },
+  threadRoot: { flex: 1 },
   inboxHeader: {
     width: "100%",
     maxWidth: 470,
