@@ -5,14 +5,17 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, TabBar, TABS } from "@/constants";
 import type { TabDef } from "@/constants";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
+import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 
 const ACTIVE_ICON_BG = "#BFFF4B";
 const INACTIVE_ICON = "rgba(255,252,247,0.74)";
 
-function TabIcon({ focused, icon, iconFocused }: {
+function TabIcon({ focused, icon, iconFocused, badgeCount = 0 }: {
   focused: boolean;
   icon: TabDef["icon"];
   iconFocused: TabDef["iconFocused"];
+  badgeCount?: number;
 }) {
   return (
     <View style={[styles.iconFrame, focused && styles.iconFrameActive]}>
@@ -21,12 +24,14 @@ function TabIcon({ focused, icon, iconFocused }: {
         size={22}
         color={focused ? Colors.primary : INACTIVE_ICON}
       />
+      <UnreadBadge count={badgeCount} />
     </View>
   );
 }
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const unread = useUnreadIndicators();
   const bottomOffset = Math.max(insets.bottom, TabBar.horizontalInset);
 
   return (
@@ -41,7 +46,7 @@ export default function TabLayout() {
             tabBarActiveTintColor: Colors.tabIconActive,
             tabBarInactiveTintColor: Colors.tabIconInactive,
             tabBarIcon: ({ focused }) => (
-              <TabIcon focused={focused} icon={tab.icon} iconFocused={tab.iconFocused} />
+              <TabIcon focused={focused} icon={tab.icon} iconFocused={tab.iconFocused} badgeCount={tab.name === "chat" ? unread.messages : 0} />
             ),
             tabBarStyle: {
               position: "absolute",

@@ -13,11 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, Spacing, TabBar } from "@/constants";
 import { useAuthStore } from "@/lib/store/auth";
+import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 import { formatCurrency, formatBookingDate, type BookingResponse } from "@/lib/api/bookings";
 import { getMyTutorProfile, listTutorBookings, getTutorStats, type TutorStats } from "@/lib/api/tutor-portal";
 import type { TutorDetail } from "@/lib/api/tutors";
 import QuickLinks from "@/components/QuickLinks";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -93,6 +95,7 @@ function RecentActivityCard({ booking }: { booking: BookingResponse }) {
 
 export default function TutorDashboard() {
   const user = useAuthStore((s) => s.user);
+  const unread = useUnreadIndicators();
   const [profile, setProfile] = useState<TutorDetail | null>(null);
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [stats, setStats] = useState<TutorStats | null>(null);
@@ -227,8 +230,7 @@ export default function TutorDashboard() {
         color={Colors.deepTeal}
       />
 
-      {/* Notification indicator */}
-      <View className="absolute top-[9px] right-[9px] w-[7px] h-[7px] rounded-full bg-teal border-2 border-white" />
+      <UnreadBadge count={unread.notifications} style={{ top: -3, right: -3, borderColor: "#FFFFFF" }} />
     </Pressable>
   </View>
 </View>

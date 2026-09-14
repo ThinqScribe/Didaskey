@@ -26,8 +26,10 @@ import {
 import { formatCurrency } from "@/lib/api/bookings";
 import { extractErrorMessage } from "@/lib/api/auth";
 import { useRefresh } from "@/lib/hooks/useRefresh";
+import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 import { Action, ErrorNotice, Field } from "@/components/ui/Workspace";
 import { EmptyState } from "@/components/ui/AppChrome";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
 
 const NAVY = "#071D3A";
 const LIME = "#BFFF4B";
@@ -54,6 +56,8 @@ function isOnlineTutor(tutor: TutorSummary) {
 }
 
 function Header({ filterCount }: { filterCount: number }) {
+  const unread = useUnreadIndicators();
+
   return (
     <View style={styles.headerTop}>
       <View style={styles.headerCopy}>
@@ -67,7 +71,7 @@ function Header({ filterCount }: { filterCount: number }) {
         style={({ pressed }) => [styles.headerIconButton, pressed && styles.pressed]}
       >
         <Ionicons name="notifications-outline" size={27} color={NAVY} />
-        <View style={styles.notificationDot} />
+        <UnreadBadge count={unread.notifications} style={styles.notificationBadge} />
       </Pressable>
       <Image source={{ uri: AVATAR_FALLBACKS[0] }} style={styles.headerAvatar} />
       {filterCount > 0 && <View style={styles.headerCount}><Text style={styles.headerCountText}>{filterCount}</Text></View>}
@@ -555,6 +559,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: MUTED_NAVY,
   },
+  notificationBadge: { top: -4, right: -4, borderColor: "#FFFFFF" },
   notificationDot: {
     position: "absolute",
     top: 4,

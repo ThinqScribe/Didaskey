@@ -5,11 +5,14 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, TabBar, TUTOR_TABS } from "@/constants";
 import type { TabDef } from "@/constants";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
+import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 
-function TabIcon({ focused, icon, iconFocused }: {
+function TabIcon({ focused, icon, iconFocused, badgeCount = 0 }: {
   focused: boolean;
   icon: TabDef["icon"];
   iconFocused: TabDef["iconFocused"];
+  badgeCount?: number;
 }) {
   return (
     <View
@@ -27,12 +30,14 @@ function TabIcon({ focused, icon, iconFocused }: {
         size={22}
         color={focused ? Colors.tabIconActive : Colors.tabIconInactive}
       />
+      <UnreadBadge count={badgeCount} />
     </View>
   );
 }
 
 export default function TutorTabLayout() {
   const insets = useSafeAreaInsets();
+  const unread = useUnreadIndicators();
   const bottomOffset = Math.max(insets.bottom, TabBar.horizontalInset);
 
   return (
@@ -48,7 +53,7 @@ export default function TutorTabLayout() {
             tabBarActiveTintColor: Colors.tabIconActive,
             tabBarInactiveTintColor: Colors.tabIconInactive,
             tabBarIcon: ({ focused }) => (
-              <TabIcon focused={focused} icon={tab.icon} iconFocused={tab.iconFocused} />
+              <TabIcon focused={focused} icon={tab.icon} iconFocused={tab.iconFocused} badgeCount={tab.name === "chat" ? unread.messages : 0} />
             ),
             tabBarStyle: {
               position: "absolute",

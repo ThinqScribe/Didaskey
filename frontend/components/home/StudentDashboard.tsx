@@ -15,7 +15,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { Colors, TabBar } from "@/constants";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
 import { useRefresh } from "@/lib/hooks/useRefresh";
+import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 import { useAuthStore } from "@/lib/store/auth";
 import { getProgress, type Progress } from "@/lib/api/learning";
 import {
@@ -120,6 +122,8 @@ function Header({
   name: string;
   learningHours: number;
 }) {
+  const unread = useUnreadIndicators();
+
   return (
     <View style={styles.headerOuter}>
       <SafeAreaView edges={["top"]} style={styles.headerSafe}>
@@ -145,7 +149,7 @@ function Header({
               style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
             >
               <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-              <View style={styles.notificationDot} />
+              <UnreadBadge count={unread.notifications} style={styles.notificationBadge} />
             </Pressable>
           </View>
 
@@ -572,6 +576,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  notificationBadge: { top: -3, right: -3, borderColor: "#FFFFFF" },
   notificationDot: {
     position: "absolute",
     right: 6,

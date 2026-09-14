@@ -141,6 +141,7 @@ function lessonTitleLabel(conversation: Conversation) {
 }
 
 function messagePreview(message: LearningItem) {
+  if (message.extra?.deleted_at) return "This message was deleted";
   if (message.attachment) return message.title ? `I've attached ${message.title}.` : message.body;
   return message.body;
 }
@@ -167,6 +168,11 @@ function confirmedMessage(sent: LearningItem, optimistic: LearningItem): Learnin
 function shouldMarkSendFailed(err: any) {
   const status = err?.response?.status;
   return typeof status === "number" && status >= 400 && status < 500 && ![408, 409, 429].includes(status);
+}
+
+function isDefinitiveMutationFailure(err: any) {
+  const status = err?.response?.status;
+  return typeof status === "number" && status >= 400 && status < 500 && ![408, 429].includes(status);
 }
 
 function isDeletedMessage(message: LearningItem) {
@@ -861,10 +867,12 @@ export default function MessagesScreen() {
         setMessages(current => mergeMessage(current, updated));
         setConversations(current => applyConversationMessage(current, updated, active.booking_id, user?.id));
       } catch (err) {
-        setError(extractErrorMessage(err, "Could not edit this message."));
-        setMessages(current => mergeMessage(current, editingMessage));
-        setDraft(body);
-        setEditingMessage(editingMessage);
+        if (isDefinitiveMutationFailure(err)) {
+          setError(extractErrorMessage(err, "Could not edit this message."));
+          setMessages(current => mergeMessage(current, editingMessage));
+          setDraft(body);
+          setEditingMessage(editingMessage);
+        }
       } finally {
         setSending(false);
       }
@@ -1081,6 +1089,11 @@ export default function MessagesScreen() {
       return;
     }
     setActionMessageKey(null);
+    if (editingMessage?.id === message.id) {
+      setEditingMessage(null);
+      setDraft("");
+    }
+    if (replyTo?.id === message.id) setReplyTo(null);
     const optimistic: LearningItem = {
       ...message,
       title: "",
@@ -1093,9 +1106,12 @@ export default function MessagesScreen() {
       const deleted = await deleteConversationMessage(active.booking_id, message.id);
       setMessages(current => mergeMessage(current, deleted));
       setConversations(current => applyConversationMessage(current, deleted, active.booking_id, user?.id));
-    } catch (err) {
-      setMessages(current => mergeMessage(current, message));
-      setError(extractErrorMessage(err, "Could not delete this message."));
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setMessages(current => mergeMessage(current, message));
+        setConversations(current => applyConversationMessage(current, message, active.booking_id, user?.id));
+        setError(extractErrorMessage(err, "Could not delete this message."));
+      }
     }
   }
 
