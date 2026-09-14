@@ -662,6 +662,9 @@ export default function MessagesScreen() {
             if (payload.type === "typing" && payload.user_id !== user?.id) {
               setTypingUser(payload.is_typing ? payload.user_id : null);
             }
+            if (payload.type === "error" && payload.detail) {
+              setError(String(payload.detail));
+            }
             if (payload.type === "read") {
               const readerId = Number(payload.user_id);
               const lastItemId = Number(payload.last_item_id);
@@ -717,9 +720,12 @@ export default function MessagesScreen() {
     let stopped = false;
     const activeBookingId = active.booking_id;
     const intervalMs = 2500;
+    let ticks = 0;
 
     async function pollThread() {
-      const after = messagesRef.current.reduce((max, message) => message.id > 0 ? Math.max(max, message.id) : max, 0);
+      ticks += 1;
+      const fullRefresh = ticks % 6 === 0;
+      const after = fullRefresh ? 0 : messagesRef.current.reduce((max, message) => message.id > 0 ? Math.max(max, message.id) : max, 0);
       try {
         const rows = await getConversationMessages(activeBookingId, after);
         if (stopped || rows.length === 0) return;
@@ -863,9 +869,13 @@ export default function MessagesScreen() {
       setSending(true);
       setError("");
       try {
-        const updated = await editConversationMessage(active.booking_id, editingMessage.id, body);
-        setMessages(current => mergeMessage(current, updated));
-        setConversations(current => applyConversationMessage(current, updated, active.booking_id, user?.id));
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+          socketRef.current.send(JSON.stringify({ type: "edit", item_id: editingMessage.id, body }));
+        } else {
+          const updated = await editConversationMessage(active.booking_id, editingMessage.id, body);
+          setMessages(current => mergeMessage(current, updated));
+          setConversations(current => applyConversationMessage(current, updated, active.booking_id, user?.id));
+        }
       } catch (err) {
         if (isDefinitiveMutationFailure(err)) {
           setError(extractErrorMessage(err, "Could not edit this message."));
@@ -1103,9 +1113,13 @@ export default function MessagesScreen() {
     setMessages(current => mergeMessage(current, optimistic));
     setConversations(current => applyConversationMessage(current, optimistic, active.booking_id, user?.id));
     try {
-      const deleted = await deleteConversationMessage(active.booking_id, message.id);
-      setMessages(current => mergeMessage(current, deleted));
-      setConversations(current => applyConversationMessage(current, deleted, active.booking_id, user?.id));
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: "delete", item_id: message.id }));
+      } else {
+        const deleted = await deleteConversationMessage(active.booking_id, message.id);
+        setMessages(current => mergeMessage(current, deleted));
+        setConversations(current => applyConversationMessage(current, deleted, active.booking_id, user?.id));
+      }
     } catch (err: any) {
       if (err?.response?.status === 403) {
         setMessages(current => mergeMessage(current, message));

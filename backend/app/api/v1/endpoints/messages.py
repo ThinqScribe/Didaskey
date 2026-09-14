@@ -181,6 +181,42 @@ async def _mark_delivered(db: AsyncSession, user: User, booking_id: int, last_it
     await db.commit()
 
 
+async def _edit_message(db: AsyncSession, user: User, booking_id: int, item_id: int, body: str) -> dict[str, Any]:
+    await require_booking(db, user, booking_id)
+    await db.scalar(select(LearningItem.id).where(LearningItem.id == item_id).with_for_update())
+    item = await db.get(LearningItem, item_id)
+    if item is None or item.booking_id != booking_id or item.kind != "message":
+        raise HTTPException(404, "Message not found")
+    if item.author_id != user.id:
+        raise HTTPException(403, "Only the sender can edit this message")
+    extra = dict(item.extra or {})
+    if extra.get("deleted_at"):
+        raise HTTPException(409, "Deleted messages cannot be edited")
+    item.body = body
+    extra["edited_at"] = datetime.now(timezone.utc).isoformat()
+    item.extra = extra
+    await db.commit()
+    return await _message_response(db, user, booking_id, item.id)
+
+
+async def _delete_message(db: AsyncSession, user: User, booking_id: int, item_id: int) -> dict[str, Any]:
+    await require_booking(db, user, booking_id)
+    await db.scalar(select(LearningItem.id).where(LearningItem.id == item_id).with_for_update())
+    item = await db.get(LearningItem, item_id)
+    if item is None or item.booking_id != booking_id or item.kind != "message":
+        raise HTTPException(404, "Message not found")
+    if item.author_id != user.id:
+        raise HTTPException(403, "Only the sender can delete this message")
+    extra = dict(item.extra or {})
+    if not extra.get("deleted_at"):
+        extra["deleted_at"] = datetime.now(timezone.utc).isoformat()
+        item.body = "This message was deleted"
+        item.title = ""
+        item.extra = extra
+        await db.commit()
+    return await _message_response(db, user, booking_id, item.id)
+
+
 @router.get("")
 async def list_conversations(
     page: int = Query(1, ge=1),
@@ -412,23 +448,9 @@ async def edit_message(
     db: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ):
-    await require_booking(db, user, booking_id)
-    await db.scalar(select(LearningItem.id).where(LearningItem.id == item_id).with_for_update())
-    item = await db.get(LearningItem, item_id)
-    if item is None or item.booking_id != booking_id or item.kind != "message":
-        raise HTTPException(404, "Message not found")
-    if item.author_id != user.id:
-        raise HTTPException(403, "Only the sender can edit this message")
-    extra = dict(item.extra or {})
-    if extra.get("deleted_at"):
-        raise HTTPException(409, "Deleted messages cannot be edited")
-    item.body = payload.body
-    extra["edited_at"] = datetime.now(timezone.utc).isoformat()
-    item.extra = extra
-    await db.commit()
-    response = await _message_response(db, user, booking_id, item.id)
-    await manager.broadcast(booking_id, {"type": "message", "message": response})
-    return response
+    message = await _edit_message(db, user, booking_id, item_id, payload.body)
+    await manager.broadcast(booking_id, {"type": "message", "message": message})
+    return message
 
 
 @router.delete("/bookings/{booking_id}/messages/{item_id}")
@@ -438,23 +460,9 @@ async def delete_message(
     db: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ):
-    await require_booking(db, user, booking_id)
-    await db.scalar(select(LearningItem.id).where(LearningItem.id == item_id).with_for_update())
-    item = await db.get(LearningItem, item_id)
-    if item is None or item.booking_id != booking_id or item.kind != "message":
-        raise HTTPException(404, "Message not found")
-    if item.author_id != user.id:
-        raise HTTPException(403, "Only the sender can delete this message")
-    extra = dict(item.extra or {})
-    if not extra.get("deleted_at"):
-        extra["deleted_at"] = datetime.now(timezone.utc).isoformat()
-        item.body = "This message was deleted"
-        item.title = ""
-        item.extra = extra
-        await db.commit()
-    response = await _message_response(db, user, booking_id, item.id)
-    await manager.broadcast(booking_id, {"type": "message", "message": response})
-    return response
+    message = await _delete_message(db, user, booking_id, item_id)
+    await manager.broadcast(booking_id, {"type": "message", "message": message})
+    return message
 
 
 @router.websocket("/ws/{booking_id}")
@@ -499,6 +507,29 @@ async def messages_ws(websocket: WebSocket, booking_id: int, token: str | None =
                         await websocket.send_json({"type": "error", "detail": exc.detail})
                         continue
                     message = await _message_response(db, user, booking_id, created["id"])
+                    await manager.broadcast(booking_id, {"type": "message", "message": message})
+                elif event_type == "edit":
+                    try:
+                        item_id = int(payload.get("item_id", 0))
+                        edit_payload = EditMessagePayload(body=str(payload.get("body", "")).strip())
+                        message = await _edit_message(db, user, booking_id, item_id, edit_payload.body)
+                    except (TypeError, ValueError, ValidationError):
+                        await websocket.send_json({"type": "error", "detail": "Edited message is invalid"})
+                        continue
+                    except HTTPException as exc:
+                        await websocket.send_json({"type": "error", "detail": exc.detail})
+                        continue
+                    await manager.broadcast(booking_id, {"type": "message", "message": message})
+                elif event_type == "delete":
+                    try:
+                        item_id = int(payload.get("item_id", 0))
+                        message = await _delete_message(db, user, booking_id, item_id)
+                    except (TypeError, ValueError):
+                        await websocket.send_json({"type": "error", "detail": "Deleted message is invalid"})
+                        continue
+                    except HTTPException as exc:
+                        await websocket.send_json({"type": "error", "detail": exc.detail})
+                        continue
                     await manager.broadcast(booking_id, {"type": "message", "message": message})
                 elif event_type == "typing":
                     await manager.broadcast(booking_id, {"type": "typing", "booking_id": booking_id, "user_id": user.id, "is_typing": bool(payload.get("is_typing"))})
