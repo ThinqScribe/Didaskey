@@ -21,6 +21,7 @@ const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DURATIONS = [30, 60, 90, 120] as const;
 const PLATFORM_FEE = 0;
+const SERVICE_TIMEZONE = "Africa/Lagos";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,41 @@ function generateSlots(start: string, end: string): string[] {
  * Falls back to the numeric offset ("UTC+1") if the Intl API can't resolve a short name.
  */
 function localTimezoneLabel(): string { return "WAT · Africa/Lagos"; }
+
+function watParts(date = new Date()): { year: number; month: number; day: number; hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SERVICE_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find(part => part.type === type)?.value ?? 0);
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    hour: value("hour"),
+    minute: value("minute"),
+  };
+}
+
+function serviceToday(): Date {
+  const now = watParts();
+  return new Date(now.year, now.month - 1, now.day);
+}
+
+function serviceDateKey(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function currentServiceMinutes(): number {
+  const now = watParts();
+  return now.hour * 60 + now.minute;
+}
 
 /** Returns all days in a given month as a grid (with leading/trailing nulls to align to Sun). */
 function buildMonthGrid(year: number, month: number): (Date | null)[] {
@@ -162,7 +198,8 @@ export default function SlotScreen() {
 
   // ── State ───────────────────────────────────────────────────────────────────
 
-  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const today = useMemo(() => serviceToday(), []);
+  const todayKey = useMemo(() => serviceDateKey(today), [today]);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [sessionFormat, setSessionFormat] = useState<SessionFormat>(
@@ -199,11 +236,10 @@ export default function SlotScreen() {
 
       // For today, drop slots that have already passed (add 5-min buffer so
       // the user isn't shown a slot they'd immediately miss).
-      const isToday = date.toDateString() === today.toDateString();
+      const isToday = serviceDateKey(date) === todayKey;
       if (!isToday) return unique;
 
-      const now = new Date();
-      const nowMins = now.getHours() * 60 + now.getMinutes() + 5; // +5 min buffer
+      const nowMins = currentServiceMinutes() + 5; // +5 min buffer
       return unique.filter((t) => {
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m > nowMins;
@@ -214,15 +250,16 @@ export default function SlotScreen() {
 
   const isDayAvailable = useCallback(
     (date: Date) => {
-      if (date < today) return false;
+      const key = serviceDateKey(date);
+      if (key < todayKey) return false;
       if (!availableDayNames.has(DAY_NAMES[date.getDay()])) return false;
       // Today is only selectable if at least one future slot remains.
-      if (date.toDateString() === today.toDateString()) {
+      if (key === todayKey) {
         return getSlotsForDate(date).length > 0;
       }
       return true;
     },
-    [availableDayNames, today, getSlotsForDate]
+    [availableDayNames, todayKey, getSlotsForDate]
   );
 
   const monthGrid = useMemo(() => buildMonthGrid(calYear, calMonth), [calYear, calMonth]);
@@ -249,7 +286,7 @@ export default function SlotScreen() {
     setSelectedTime(null); setAvailableTimeSlots([]); setSlotsError("");
     if (!selectedDate) return;
     let active = true;
-    const day = [selectedDate.getFullYear(), String(selectedDate.getMonth() + 1).padStart(2, "0"), String(selectedDate.getDate()).padStart(2, "0")].join("-");
+    const day = serviceDateKey(selectedDate);
     apiClient.get(`/tutors/${tutorId}/slots`, { params: { day, duration } }).then(({ data }) => { if (active) setAvailableTimeSlots(data.slots); }).catch(() => { if (active) setSlotsError("Could not load available times. Select the date again to retry."); });
     return () => { active = false; };
   }, [selectedDate, duration, tutorId]);
@@ -569,7 +606,7 @@ function Step2({
   selectedTime: string | null;
   onTimeChange: (t: string) => void;
 }) {
-  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const todayKey = useMemo(() => serviceDateKey(serviceToday()), []);
   const rows = useMemo(() => {
     const r: (Date | null)[][] = [];
     for (let i = 0; i < monthGrid.length; i += 7) r.push(monthGrid.slice(i, i + 7));
@@ -614,7 +651,7 @@ function Step2({
             if (!day) return <View key={ci} style={{ flex: 1 }} />;
             const available = isDayAvailable(day);
             const isSelected = selectedDate?.toDateString() === day.toDateString();
-            const isToday = today.toDateString() === day.toDateString();
+            const isToday = todayKey === serviceDateKey(day);
             return (
               <Pressable
                 key={ci}

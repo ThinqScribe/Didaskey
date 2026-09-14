@@ -185,6 +185,7 @@ export async function initiatePayment(
  */
 export function formatBookingDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString("en-US", {
+    timeZone: "Africa/Lagos",
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -203,7 +204,11 @@ export function formatBookingTimeRange(
   const end = new Date(start.getTime() + durationMinutes * 60_000);
 
   const fmt = (d: Date) =>
-    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    d.toLocaleTimeString("en-US", {
+      timeZone: "Africa/Lagos",
+      hour: "numeric",
+      minute: "2-digit",
+    });
 
   return `${fmt(start)} – ${fmt(end)}`;
 }

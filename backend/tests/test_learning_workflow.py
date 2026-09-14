@@ -5,6 +5,7 @@ from decimal import Decimal
 import httpx
 import pytest
 import pytest_asyncio
+from jose import jwt
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -236,6 +237,39 @@ async def test_message_persistence_and_retry(scenario):
     assert (await client.put(f"{base}/read", json={"last_item_id": message_id})).status_code == 403
     current["user"] = users[1]
     assert (await client.patch("/api/v1/tutors/me", json={"verification_status": "verified"})).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_classroom_join_uses_one_livekit_room_for_student_and_tutor(scenario, monkeypatch):
+    from app.core.config import settings
+
+    client, current, users, booking_id = scenario
+    monkeypatch.setattr(settings, "LIVEKIT_URL", "wss://didaskey-test.livekit.cloud")
+    monkeypatch.setattr(settings, "LIVEKIT_API_KEY", "test-livekit-key")
+    monkeypatch.setattr(settings, "LIVEKIT_API_SECRET", "x" * 40)
+
+    endpoint = f"/api/v1/classrooms/bookings/{booking_id}/join"
+    current["user"] = users[0]
+    student_response = await client.post(endpoint)
+    assert student_response.status_code == 200, student_response.text
+
+    current["user"] = users[1]
+    tutor_response = await client.post(endpoint)
+    assert tutor_response.status_code == 200, tutor_response.text
+
+    student = student_response.json()
+    tutor = tutor_response.json()
+    assert student["livekit_url"] == tutor["livekit_url"] == "wss://didaskey-test.livekit.cloud"
+    assert student["room_name"] == tutor["room_name"] == f"tuterra-booking-{booking_id}"
+    assert student["user_id"] != tutor["user_id"]
+
+    student_claims = jwt.decode(student["token"], "x" * 40, algorithms=["HS256"], audience="test-livekit-key")
+    tutor_claims = jwt.decode(tutor["token"], "x" * 40, algorithms=["HS256"], audience="test-livekit-key")
+    assert student_claims["sub"] == f"user-{users[0].id}"
+    assert tutor_claims["sub"] == f"user-{users[1].id}"
+    assert student_claims["video"]["room"] == tutor_claims["video"]["room"] == f"tuterra-booking-{booking_id}"
+    assert student_claims["video"]["roomJoin"] is True
+    assert tutor_claims["video"]["roomJoin"] is True
 
 
 @pytest.mark.parametrize("changes", [{"role": "parent"}, {"education_level": "undergraduate"}, {"education_level": "postgraduate"}, {"role": "admin"}])

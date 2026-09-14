@@ -7,6 +7,7 @@ export interface Submission { id: number; body: string; feedback: string | null;
 export interface MessageReaction { emoji: string; count: number; mine: boolean }
 export interface ReplyPreview { id: number; author_id: number; author_name: string; body: string; kind: ItemKind }
 export interface LearningItem { id: number; booking_id: number; author_id: number; author_name: string; kind: ItemKind; title: string; body: string; url: string | null; due_at: string | null; client_id?: string | null; created_at: string; submission: Submission | null; delivered_by_recipient?: boolean; read_by_recipient?: boolean; reply_to_item_id?: number | null; reply_to?: ReplyPreview | null; reactions?: MessageReaction[]; attachment?: { filename: string; media_type: string; size: number } | null; extra?: Record<string, unknown> | null; pending?: boolean; failed?: boolean }
+export interface BoardStroke { id: number; author_id: number; client_id?: string | null; points: [number, number][]; color: string; width: number }
 export interface Conversation { booking_id: number; title: string; counterpart: string; last_message: string | null; last_message_at?: string | null; scheduled_at: string; unread_count?: number; last_read_item_id?: number }
 export interface Notice { id: number; title: string; body: string; read_at: string | null; booking_id: number | null; created_at: string }
 export interface Progress { completed_sessions: number; learning_minutes: number; assignments: number; submitted: number; reviewed: number; pending: number }
@@ -99,6 +100,15 @@ export async function createMessageSocket(bookingId: number): Promise<WebSocket>
   if (!token) throw new Error("You are not signed in.");
   const wsBase = BASE_URL.replace(/^http/i, "ws");
   return new WebSocket(`${wsBase}/messages/ws/${bookingId}?token=${encodeURIComponent(token)}`);
+}
+export async function getWhiteboardStrokes(bookingId: number): Promise<BoardStroke[]> {
+  return (await apiClient.get<BoardStroke[]>(`/learning/bookings/${bookingId}/whiteboard`)).data;
+}
+export async function createWhiteboardSocket(bookingId: number): Promise<WebSocket> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("You are not signed in.");
+  const wsBase = BASE_URL.replace(/^http/i, "ws");
+  return new WebSocket(`${wsBase}/learning/bookings/${bookingId}/whiteboard/ws?token=${encodeURIComponent(token)}`);
 }
 export async function getProgress(): Promise<Progress> { return (await apiClient.get("/progress")).data; }
 export async function getNotices(page = 1): Promise<Notice[]> { return (await apiClient.get("/notifications", { params: { page } })).data; }

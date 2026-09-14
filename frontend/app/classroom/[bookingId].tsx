@@ -38,6 +38,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -48,6 +49,7 @@ import WebView from "react-native-webview";
 
 import { Colors } from "@/constants";
 import LearningWorkspace from "@/components/LearningWorkspace";
+import SharedWhiteboard from "@/components/SharedWhiteboard";
 import {
   joinClassroom,
   leaveClassroom,
@@ -60,7 +62,7 @@ import { useAuthStore } from "@/lib/store/auth";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Phase = "loading" | "live" | "error" | "ended";
-type ClassroomTab = "live" | "resources" | "chat";
+type ClassroomTab = "live" | "board" | "chat" | "resources";
 
 
 
@@ -197,7 +199,7 @@ export default function ClassroomScreen() {
   // ── Build the LiveKit Meet URL ────────────────────────────────────────────
 
   const meetUrl = joinData
-    ? `https://meet.livekit.io/?liveKitUrl=${encodeURIComponent(joinData.livekit_url)}&token=${encodeURIComponent(joinData.token)}`
+    ? `https://meet.livekit.io/custom?liveKitUrl=${encodeURIComponent(joinData.livekit_url)}&token=${encodeURIComponent(joinData.token)}`
     : null;
 
   // ── Render: loading ──────────────────────────────────────────────────────
@@ -275,18 +277,18 @@ export default function ClassroomScreen() {
     <View className="flex-1" style={{ backgroundColor: "#0f172a" }}>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#0f172a" }}>
-        <View className="flex-row items-center px-4 py-2">
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#071D3C" }}>
+        <View style={styles.header}>
 
           {/* Live dot + title */}
-          <View className="flex-row items-center gap-2 flex-1">
-            <View className="w-2 h-2 rounded-full bg-teal" />
-            <View>
-              <Text className="text-[13px] font-sans-bold text-white" numberOfLines={1}>
+          <View style={styles.headerTitleWrap}>
+            <View style={styles.liveDot} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
                 {title}
               </Text>
               {!!counterpartName && (
-                <Text className="text-[11px] font-sans-medium text-white/50">
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
                   with {counterpartName}
                 </Text>
               )}
@@ -294,11 +296,8 @@ export default function ClassroomScreen() {
           </View>
 
           {/* Timer */}
-          <View
-            className="rounded-full px-3 py-1 mr-3"
-            style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-          >
-            <Text className="text-[12px] font-sans-bold text-white/70">
+          <View style={styles.timerPill}>
+            <Text style={styles.timerText}>
               {formatTime(elapsed)}
             </Text>
           </View>
@@ -308,21 +307,19 @@ export default function ClassroomScreen() {
             <Pressable
               onPress={handleEndSession}
               disabled={ending}
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "rgba(220,38,38,0.85)" }}
+              style={styles.endButton}
             >
               {ending
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text className="text-[12px] font-sans-bold text-white">End</Text>
+                : <Text style={styles.headerButtonText}>End</Text>
               }
             </Pressable>
           ) : (
             <Pressable
               onPress={handleLeave}
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+              style={styles.leaveButton}
             >
-              <Text className="text-[12px] font-sans-bold text-white">Leave</Text>
+              <Text style={styles.headerButtonText}>Leave</Text>
             </Pressable>
           )}
         </View>
@@ -330,14 +327,14 @@ export default function ClassroomScreen() {
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
       <View
-        className="flex-row border-b"
-        style={{ borderColor: "rgba(255,255,255,0.08)", backgroundColor: "#0f172a" }}
+        style={styles.tabBar}
       >
         {(
           [
             { id: "live",      icon: "videocam",              label: "Live"      },
-            { id: "resources", icon: "folder-open",           label: "Resources" },
+            { id: "board",     icon: "create",                label: "Board"     },
             { id: "chat",      icon: "chatbubble-ellipses",   label: "Chat"      },
+            { id: "resources", icon: "folder-open",           label: "Materials" },
           ] as { id: ClassroomTab; icon: string; label: string }[]
         ).map((tab) => {
           const active = activeTab === tab.id;
@@ -345,20 +342,15 @@ export default function ClassroomScreen() {
             <Pressable
               key={tab.id}
               onPress={() => setActiveTab(tab.id)}
-              className="flex-1 items-center py-2.5"
-              style={{
-                borderBottomWidth: 2,
-                borderBottomColor: active ? Colors.teal : "transparent",
-              }}
+              style={[styles.tabButton, active && styles.tabButtonActive]}
             >
               <Ionicons
                 name={tab.icon as any}
                 size={16}
-                color={active ? Colors.teal : "rgba(255,255,255,0.35)"}
+                color={active ? "#071D3C" : "rgba(255,255,255,0.55)"}
               />
               <Text
-                className="text-[10px] font-sans-bold mt-0.5"
-                style={{ color: active ? Colors.teal : "rgba(255,255,255,0.35)" }}
+                style={[styles.tabText, active && styles.tabTextActive]}
               >
                 {tab.label}
               </Text>
@@ -405,12 +397,44 @@ export default function ClassroomScreen() {
           )}
         </View>
 
-        {activeTab !== "live" && (
-          <ScrollView style={{ backgroundColor: Colors.background }} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
-            <LearningWorkspace key={activeTab} bookingId={bookingId} initialTab={activeTab === "chat" ? "message" : "resource"} />
+        {activeTab === "board" && (
+          <View style={styles.panel}>
+            <SharedWhiteboard bookingId={bookingId} />
+          </View>
+        )}
+
+        {(activeTab === "chat" || activeTab === "resources") && (
+          <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelContent} keyboardShouldPersistTaps="handled">
+            <LearningWorkspace
+              key={activeTab}
+              bookingId={bookingId}
+              initialTab={activeTab === "chat" ? "message" : "resource"}
+              showBoardButton={false}
+            />
           </ScrollView>
         )}
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 },
+  headerTitleWrap: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
+  headerTitle: { fontFamily: "sans-bold", fontSize: 14, color: "#FFFFFF", letterSpacing: 0 },
+  headerSubtitle: { marginTop: 1, fontFamily: "sans-medium", fontSize: 11, color: "rgba(255,255,255,0.62)" },
+  timerPill: { minHeight: 30, borderRadius: 999, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
+  timerText: { fontFamily: "sans-bold", fontSize: 12, color: "rgba(255,255,255,0.78)" },
+  leaveButton: { minHeight: 32, borderRadius: 999, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
+  endButton: { minHeight: 32, borderRadius: 999, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(220,38,38,0.92)" },
+  headerButtonText: { fontFamily: "sans-bold", fontSize: 12, color: "#FFFFFF" },
+  tabBar: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingBottom: 10, backgroundColor: "#071D3C", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" },
+  tabButton: { flex: 1, minHeight: 42, borderRadius: 999, alignItems: "center", justifyContent: "center", gap: 2 },
+  tabButtonActive: { backgroundColor: Colors.paleTeal },
+  tabText: { fontFamily: "sans-bold", fontSize: 10, color: "rgba(255,255,255,0.55)" },
+  tabTextActive: { color: "#071D3C" },
+  panel: { flex: 1, padding: 16, backgroundColor: Colors.background },
+  panelScroll: { flex: 1, backgroundColor: Colors.background },
+  panelContent: { padding: 16, paddingBottom: 28 },
+});
