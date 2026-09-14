@@ -1,10 +1,13 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, TabBar, TABS } from "@/constants";
 import type { TabDef } from "@/constants";
+
+const ACTIVE_ICON_BG = "#BFFF4B";
+const INACTIVE_ICON = "rgba(255,252,247,0.74)";
 
 function TabIcon({ focused, icon, iconFocused }: {
   focused: boolean;
@@ -12,20 +15,11 @@ function TabIcon({ focused, icon, iconFocused }: {
   iconFocused: TabDef["iconFocused"];
 }) {
   return (
-    <View
-      style={{
-        width: TabBar.iconFrame,
-        height: TabBar.iconFrame,
-        borderRadius: TabBar.iconFrame / 2,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: focused ? Colors.tabActiveBg : "transparent",
-      }}
-    >
+    <View style={[styles.iconFrame, focused && styles.iconFrameActive]}>
       <Ionicons
         name={focused ? iconFocused : icon}
         size={22}
-        color={focused ? Colors.tabIconActive : Colors.tabIconInactive}
+        color={focused ? Colors.primary : INACTIVE_ICON}
       />
     </View>
   );
@@ -43,8 +37,7 @@ export default function TabLayout() {
           name={tab.name}
           options={{
             title: tab.title,
-            tabBarShowLabel: true,
-            tabBarLabelStyle: { fontFamily: "sans-semibold", fontSize: 10, marginTop: -3, marginBottom: 8 },
+            tabBarShowLabel: false,
             tabBarActiveTintColor: Colors.tabIconActive,
             tabBarInactiveTintColor: Colors.tabIconInactive,
             tabBarIcon: ({ focused }) => (
@@ -52,21 +45,18 @@ export default function TabLayout() {
             ),
             tabBarStyle: {
               position: "absolute",
+              display: tab.name === "chat" ? "none" : "flex",
               bottom: bottomOffset,
-              marginHorizontal: TabBar.horizontalInset,
               height: TabBar.height,
+              marginHorizontal: TabBar.horizontalInset,
               borderRadius: TabBar.radius,
-              backgroundColor: Colors.tabBar,
-              borderWidth: 1,
-              borderColor: Colors.border,
-              elevation: 8,
-              shadowColor: Colors.deepTeal,
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: 0.12,
-              shadowRadius: 18,
+              backgroundColor: Colors.primary,
+              borderTopWidth: 0,
+              overflow: "hidden",
+              elevation: 0,
             },
             tabBarItemStyle: {
-              paddingTop: 4,
+              paddingVertical: (TabBar.height / 2) - (TabBar.iconFrame / 1.6),
             },
             tabBarIconStyle: {
               width: TabBar.iconFrame,
@@ -79,3 +69,17 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconFrame: {
+    width: TabBar.iconFrame,
+    height: TabBar.iconFrame,
+    borderRadius: TabBar.iconFrame / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  iconFrameActive: {
+    backgroundColor: ACTIVE_ICON_BG,
+  },
+});

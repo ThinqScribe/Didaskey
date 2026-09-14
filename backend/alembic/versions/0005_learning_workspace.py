@@ -20,6 +20,8 @@ def upgrade():
         sa.Column("url", sa.String(2000)),
         sa.Column("due_at", sa.DateTime(timezone=True)),
         sa.Column("client_id", sa.String(100)),
+        sa.Column("reply_to_item_id", sa.Integer()),
+        sa.Column("extra", sa.JSON()),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("author_id", "client_id", name="uq_learning_client"))
     for name in ("booking_id", "author_id", "kind"):

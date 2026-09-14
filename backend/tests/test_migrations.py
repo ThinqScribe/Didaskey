@@ -15,6 +15,7 @@ def test_fresh_install_and_learning_upgrade(tmp_path, monkeypatch):
     with sqlite3.connect(path) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert {"users", "bookings", "learning_items", "learning_submissions", "notifications", "message_receipts", "learning_attachments", "board_strokes"} <= tables
+        assert {"reply_to_item_id", "extra"} <= {row[1] for row in db.execute("PRAGMA table_info(learning_items)")}
         assert db.execute("SELECT email FROM users").fetchone()[0] == "existing@example.com"
 
 
@@ -27,7 +28,7 @@ def test_adopts_existing_development_classrooms(tmp_path, monkeypatch):
         db.execute("UPDATE alembic_version SET version_num='a8760d6ddd8a'")
     command.upgrade(config, "head")
     with sqlite3.connect(path) as db:
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0009_shared_whiteboard"
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0010_chat_message_metadata"
 
 
 def test_upgrade_after_create_all_left_new_tables_but_old_users(tmp_path, monkeypatch):
@@ -45,4 +46,4 @@ def test_upgrade_after_create_all_left_new_tables_but_old_users(tmp_path, monkey
     command.upgrade(config, "head")
     with sqlite3.connect(path) as db:
         assert "token_version" in {row[1] for row in db.execute("PRAGMA table_info(users)")}
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0009_shared_whiteboard"
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0010_chat_message_metadata"

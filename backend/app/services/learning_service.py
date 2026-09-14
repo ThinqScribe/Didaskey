@@ -54,9 +54,44 @@ async def list_items(db: AsyncSession, user: User, booking_id=None, kind=None, a
     by_assignment = {s.assignment_id: serialize(s) for s in submissions}
     attachments = (await db.scalars(select(LearningAttachment).where(LearningAttachment.item_id.in_(ids)))).all() if ids else []
     files = {a.item_id: {"filename": a.filename, "media_type": a.media_type, "size": a.size} for a in attachments}
+    reply_ids = {row[0].reply_to_item_id for row in rows if row[0].reply_to_item_id}
+    replies = (await db.execute(
+        select(LearningItem, User.first_name, User.last_name)
+        .join(User, User.id == LearningItem.author_id)
+        .where(LearningItem.id.in_(reply_ids))
+    )).all() if reply_ids else []
+    reply_map = {
+        item.id: {
+            "id": item.id,
+            "author_id": item.author_id,
+            "author_name": f"{first} {last}",
+            "body": item.body[:280],
+            "kind": item.kind,
+        }
+        for item, first, last in replies
+    }
     receipts = (await db.scalars(select(MessageReceipt).where(MessageReceipt.booking_id.in_({row[0].booking_id for row in rows})))).all() if rows else []
-    return [{**serialize(item), "author_name": f"{first} {last}", "submission": by_assignment.get(item.id), "attachment": files.get(item.id),
-             "read_by_recipient": item.kind == "message" and any(r.booking_id == item.booking_id and r.user_id != item.author_id and r.last_item_id >= item.id for r in receipts)} for item, first, last in rows]
+    result = []
+    for item, first, last in rows:
+        values = serialize(item)
+        extra = values.pop("extra", None) or {}
+        raw_reactions = extra.pop("reactions", {}) if isinstance(extra, dict) else {}
+        reactions = [
+            {"emoji": emoji, "count": len(user_ids), "mine": user.id in user_ids}
+            for emoji, user_ids in sorted(raw_reactions.items())
+            if isinstance(user_ids, list) and user_ids
+        ]
+        result.append({
+            **values,
+            "extra": extra,
+            "reactions": reactions,
+            "author_name": f"{first} {last}",
+            "submission": by_assignment.get(item.id),
+            "attachment": files.get(item.id),
+            "reply_to": reply_map.get(item.reply_to_item_id),
+            "read_by_recipient": item.kind == "message" and any(r.booking_id == item.booking_id and r.user_id != item.author_id and r.last_item_id >= item.id for r in receipts),
+        })
+    return result
 
 
 async def create_item(db: AsyncSession, user: User, booking_id: int, payload: ItemCreate):
@@ -70,9 +105,14 @@ async def create_item(db: AsyncSession, user: User, booking_id: int, payload: It
         if existing:
             if (existing.booking_id != booking_id or existing.kind != payload.kind or existing.body != payload.body
                     or existing.title != payload.title or existing.url != (str(payload.url) if payload.url else None)
+                    or existing.reply_to_item_id != payload.reply_to_item_id
                     or (existing.due_at.isoformat() if existing.due_at else None) != (payload.due_at.isoformat() if payload.due_at else None)):
                 raise HTTPException(409, "This request identifier has already been used")
             return serialize(existing)
+    if payload.reply_to_item_id is not None:
+        reply = await db.get(LearningItem, payload.reply_to_item_id)
+        if reply is None or reply.booking_id != booking_id or reply.kind != "message":
+            raise HTTPException(404, "Message being replied to was not found")
     item = LearningItem(booking_id=booking_id, author_id=user.id, **payload.model_dump(exclude={"url"}), url=str(payload.url) if payload.url else None)
     db.add(item)
     recipient = booking.tutor.user_id if user.id == booking.student_id else booking.student_id

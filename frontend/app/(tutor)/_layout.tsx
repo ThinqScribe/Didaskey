@@ -52,6 +52,7 @@ export default function TutorTabLayout() {
             ),
             tabBarStyle: {
               position: "absolute",
+              display: tab.name === "chat" ? "none" : "flex",
               bottom: bottomOffset,
               marginHorizontal: TabBar.horizontalInset,
               height: TabBar.height,

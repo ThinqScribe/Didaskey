@@ -11,6 +11,7 @@ class ItemCreate(BaseModel):
     url: HttpUrl | None = None
     due_at: datetime | None = None
     client_id: str | None = Field(default=None, min_length=1, max_length=100)
+    reply_to_item_id: int | None = Field(default=None, gt=0)
 
     @field_validator("due_at")
     @classmethod

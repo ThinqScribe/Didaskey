@@ -185,6 +185,14 @@ async def test_message_persistence_and_retry(scenario):
     assert (await client.get(base)).json()[0]["body"] == payload["body"]
     assert (await client.get("/api/v1/messages")).json()[0]["last_message"] == payload["body"]
     message_id = first.json()["id"]
+    reply = await client.post(f"/api/v1/messages/bookings/{booking_id}", json={"body": "I can reply from chat", "client_id": "chat-retry-1", "reply_to_item_id": message_id})
+    assert reply.status_code == 201, reply.text
+    assert reply.json()["reply_to"]["id"] == message_id
+    assert (await client.post(f"/api/v1/messages/bookings/{booking_id}", json={"body": "I can reply from chat", "client_id": "chat-retry-1", "reply_to_item_id": message_id})).json()["id"] == reply.json()["id"]
+    chat_file = await client.post(f"/api/v1/messages/bookings/{booking_id}/attachments", files={"file": ("guide.pdf", b"%PDF-1.4\nChat handout\n%%EOF", "application/pdf")})
+    assert chat_file.status_code == 201, chat_file.text
+    assert chat_file.json()["attachment"]["media_type"] == "application/pdf"
+    assert chat_file.json()["body"] == "Shared guide.pdf"
     assert not (await client.get(base)).json()[0]["read_by_recipient"]
     assert (await client.put(f"{base}/read", json={"last_item_id": message_id})).status_code == 200
     current["user"] = users[0]

@@ -11,14 +11,14 @@ export const TABS: TabDef[] = [
   { name: "home",      title: "Home",     icon: "home-outline",      iconFocused: "home"        },
   { name: "search",    title: "Search",   icon: "search-outline",    iconFocused: "search"      },
   { name: "bookings",  title: "Bookings", icon: "calendar-outline",  iconFocused: "calendar"    },
-  { name: "chat",      title: "Learning", icon: "book-outline", iconFocused: "book"  },
+  { name: "chat",      title: "Messages", icon: "chatbubble-ellipses-outline", iconFocused: "chatbubble-ellipses"  },
   { name: "profile",   title: "Profile",  icon: "person-outline",    iconFocused: "person"      },
 ];
 
 export const TUTOR_TABS: TabDef[] = [
   { name: "dashboard", title: "Dashboard", icon: "grid-outline",      iconFocused: "grid"        },
   { name: "sessions",  title: "Sessions",  icon: "calendar-outline",  iconFocused: "calendar"    },
-  { name: "students",  title: "Students",  icon: "people-outline",    iconFocused: "people"      },
+  { name: "chat",      title: "Messages",  icon: "chatbubble-ellipses-outline", iconFocused: "chatbubble-ellipses" },
   { name: "earnings",  title: "Earnings",  icon: "wallet-outline",    iconFocused: "wallet"      },
   { name: "profile",   title: "Profile",   icon: "person-outline",    iconFocused: "person"      },
 ];
