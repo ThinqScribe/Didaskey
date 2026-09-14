@@ -16,7 +16,7 @@ interface UpcomingSessionCardProps {
 
 export default function UpcomingSessionCard({ session, onJoin }: UpcomingSessionCardProps) {
   return (
-    <View className="bg-card rounded-[22px] border border-border px-4 py-4">
+    <View className="bg-card rounded-lg border border-border px-4 py-4">
       <View className="flex-row items-center gap-2 mb-1">
         <Ionicons name="time-outline" size={15} color={Colors.mutedForeground} />
         <Text className="text-[13px] font-sans-semibold text-muted-foreground">{session.dateLabel}</Text>
@@ -28,7 +28,7 @@ export default function UpcomingSessionCard({ session, onJoin }: UpcomingSession
             with {session.tutorName}
           </Text>
         </View>
-        <Pressable onPress={onJoin} className="bg-deep-teal rounded-full px-4 py-2">
+        <Pressable onPress={onJoin} className="bg-deep-teal rounded-lg px-4 py-2">
           <Text className="text-[13px] font-sans-bold text-white">Join Class</Text>
         </Pressable>
       </View>

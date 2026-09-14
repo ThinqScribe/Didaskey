@@ -30,7 +30,7 @@ import {
   type TutorSummary,
 } from "@/lib/api/tutors";
 
-const SUBJECT_TINTS = ["#CFF6D7", "#C9B6FF", "#F0ECE3", "#BDF7F3", "#EFEBE2"];
+const SUBJECT_TINTS = ["#D3FAF3", "#E9F0FA", "#FFF4D8", "#E7FAF1", "#FCE8E8"];
 const LIME = "#BFFF4B";
 const NAVY = "#071D3A";
 const HEADER_NAVY = "#061E3D";
@@ -177,7 +177,7 @@ function Header({
               <Text style={styles.weekText}>this week</Text>
             </View>
             <View style={styles.noteWrap}>
-              <Text style={styles.noteText}>Small steps{"\n"}big progress</Text>
+              <Text style={styles.noteText}>On track</Text>
               <View style={styles.noteUnderline} />
             </View>
           </View>
@@ -639,20 +639,25 @@ const styles = StyleSheet.create({
   noteWrap: {
     marginLeft: "auto",
     marginRight: 10,
-    transform: [{ rotate: "-11deg" }],
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(211,250,243,0.24)",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   noteText: {
     fontFamily: "sans-bold",
     fontSize: 13,
     lineHeight: 15,
-    color: "#BFAEFF",
+    color: "#D3FAF3",
   },
   noteUnderline: {
-    width: 58,
+    width: 44,
     height: 2,
     borderRadius: 2,
-    marginTop: 8,
-    backgroundColor: "#BFAEFF",
+    marginTop: 6,
+    backgroundColor: LIME,
   },
   body: {
     width: "100%",

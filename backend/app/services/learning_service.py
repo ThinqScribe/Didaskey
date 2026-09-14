@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Booking, TutorProfile, User
-from app.models.learning import LearningItem, Notification, Submission, MessageReceipt, LearningAttachment
+from app.models.learning import LearningItem, Notification, Submission, MessageReceipt, MessageDeliveryReceipt, LearningAttachment
 from app.schemas.learning import ItemCreate
 
 
@@ -70,7 +70,9 @@ async def list_items(db: AsyncSession, user: User, booking_id=None, kind=None, a
         }
         for item, first, last in replies
     }
-    receipts = (await db.scalars(select(MessageReceipt).where(MessageReceipt.booking_id.in_({row[0].booking_id for row in rows})))).all() if rows else []
+    booking_ids = {row[0].booking_id for row in rows}
+    receipts = (await db.scalars(select(MessageReceipt).where(MessageReceipt.booking_id.in_(booking_ids)))).all() if rows else []
+    deliveries = (await db.scalars(select(MessageDeliveryReceipt).where(MessageDeliveryReceipt.booking_id.in_(booking_ids)))).all() if rows else []
     result = []
     for item, first, last in rows:
         values = serialize(item)
@@ -89,6 +91,7 @@ async def list_items(db: AsyncSession, user: User, booking_id=None, kind=None, a
             "submission": by_assignment.get(item.id),
             "attachment": files.get(item.id),
             "reply_to": reply_map.get(item.reply_to_item_id),
+            "delivered_by_recipient": item.kind == "message" and any(r.booking_id == item.booking_id and r.user_id != item.author_id and r.last_item_id >= item.id for r in deliveries + receipts),
             "read_by_recipient": item.kind == "message" and any(r.booking_id == item.booking_id and r.user_id != item.author_id and r.last_item_id >= item.id for r in receipts),
         })
     return result

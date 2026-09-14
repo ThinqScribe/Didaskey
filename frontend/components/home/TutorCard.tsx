@@ -17,13 +17,13 @@ export default function TutorCard({ tutor, onPress, onBookmark }: TutorCardProps
   const isOnline = tutor.teaching_mode === "online" || tutor.teaching_mode === "both";
 
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`View ${tutor.display_name}, ${primarySubject}`} onPress={onPress} style={({ pressed }) => ({ backgroundColor: Colors.card, borderRadius: 24, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border, opacity: pressed ? 0.76 : 1, shadowColor: Colors.deepTeal, shadowOpacity: 0.035, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 1 })}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`View ${tutor.display_name}, ${primarySubject}`} onPress={onPress} style={({ pressed }) => ({ backgroundColor: Colors.card, borderRadius: 8, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border, opacity: pressed ? 0.76 : 1, shadowColor: Colors.deepTeal, shadowOpacity: 0.025, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 })}>
       <View className="flex-row items-center">
       <View className="relative mr-4">
         {tutor.profile_image_url ? (
-          <Image source={{ uri: tutor.profile_image_url }} className="w-16 h-16 rounded-[20px]" />
+          <Image source={{ uri: tutor.profile_image_url }} className="w-16 h-16 rounded-lg" />
         ) : (
-          <View className="w-16 h-16 rounded-[20px] bg-muted items-center justify-center">
+          <View className="w-16 h-16 rounded-lg bg-muted items-center justify-center">
             <Ionicons name="person" size={26} color={Colors.mutedForeground} />
           </View>
         )}

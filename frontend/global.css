@@ -6,26 +6,26 @@
 
 @theme {
     /* ── Didaskey Brand Palette ── */
-    --color-deep-teal: #0B3F43;
-    --color-dark-emerald: #0E5E60;
-    --color-teal: #17A389;
-    --color-soft-mint: #8EEED0;
-    --color-warm-ivory: #F8F3EA;
-    --color-gold: #D99A2B;
-    --color-charcoal: #1F2927;
+    --color-deep-teal: #071D3A;
+    --color-dark-emerald: #0A2F5C;
+    --color-teal: #14B8A6;
+    --color-soft-mint: #D3FAF3;
+    --color-warm-ivory: #FFFFFF;
+    --color-gold: #F4B321;
+    --color-charcoal: #071D3A;
     --color-white: #FFFFFF;
 
     /* ── Semantic tokens ── */
-    --color-background: #F8F3EA;
-    --color-foreground: #1F2927;
-    --color-card: #FFFCF7;
-    --color-muted: #EFE7DA;
-    --color-muted-foreground: #66706D;
-    --color-primary: #0B3F43;
-    --color-accent: #17A389;
-    --color-border: #DDD5C8;
-    --color-success: #17A389;
-    --color-destructive: #dc2626;
+    --color-background: #FFFFFF;
+    --color-foreground: #071D3A;
+    --color-card: #FFFFFF;
+    --color-muted: #F0F2F6;
+    --color-muted-foreground: #66718E;
+    --color-primary: #071D3A;
+    --color-accent: #14B8A6;
+    --color-border: #DADDE7;
+    --color-success: #18C86F;
+    --color-destructive: #DC2626;
 
     --font-sans: sans-regular;
     --font-sans-light: sans-light;

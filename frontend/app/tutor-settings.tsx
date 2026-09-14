@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Switch, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Action, Card, ErrorNotice, Field, Page, ui } from "@/components/ui/Workspace";
+import { Colors } from "@/constants";
 import { getMyTutorProfile, updateMyProfile, setAvailability, DAYS } from "@/lib/api/tutor-portal";
 import { getSubjects, type Subject } from "@/lib/api/tutors";
 import { extractErrorMessage } from "@/lib/api/auth";
@@ -29,7 +30,7 @@ export default function TutorSettings() {
     <Card><Text style={ui.heading}>Verification: {status || "Loading"}</Text><Text style={ui.text}>Complete your profile, qualifications, subjects, and schedule. An administrator reviews your profile before it appears in tutor search.</Text><Field label="About your teaching" value={bio} onChangeText={setBio} multiline /><Field label="Qualifications" value={qualifications} onChangeText={setQualifications} multiline /><Field label="Hourly rate (NGN)" value={rate} onChangeText={setRate} keyboardType="decimal-pad" /><Action label="Save profile" busy={busy} onPress={saveProfile} /></Card>
     <Card><Text style={ui.heading}>Subjects you teach</Text>{subjects.map(subject => <View key={subject.id} style={ui.row}><Text style={[ui.text, { flex: 1 }]}>{subject.name}</Text><Switch accessibilityLabel={`Teach ${subject.name}`} disabled={busy} value={selected.includes(subject.id)} onValueChange={() => toggleSubject(subject.id)} /></View>)}</Card>
     <Card><Text style={ui.heading}>Weekly availability</Text><Text style={ui.muted}>Times are in Africa/Lagos (WAT). Use 24-hour time, for example 09:00–12:00.</Text>
-      {slots.map((slot, index) => <View key={index} style={{ gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderColor: "#E6DECF" }}><Text style={ui.heading}>{slot.day_of_week}</Text><Field label="Start time" value={slot.start_time.slice(0, 5)} onChangeText={value => setSlots(old => old.map((s, i) => i === index ? { ...s, start_time: value } : s))} /><Field label="End time" value={slot.end_time.slice(0, 5)} onChangeText={value => setSlots(old => old.map((s, i) => i === index ? { ...s, end_time: value } : s))} /><Action label="Remove window" secondary onPress={() => setSlots(old => old.filter((_, i) => i !== index))} /></View>)}
+      {slots.map((slot, index) => <View key={index} style={{ gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderColor: Colors.border }}><Text style={ui.heading}>{slot.day_of_week}</Text><Field label="Start time" value={slot.start_time.slice(0, 5)} onChangeText={value => setSlots(old => old.map((s, i) => i === index ? { ...s, start_time: value } : s))} /><Field label="End time" value={slot.end_time.slice(0, 5)} onChangeText={value => setSlots(old => old.map((s, i) => i === index ? { ...s, end_time: value } : s))} /><Action label="Remove window" secondary onPress={() => setSlots(old => old.filter((_, i) => i !== index))} /></View>)}
       <Text style={ui.muted}>Add a window</Text><View style={ui.row}>{DAYS.map(day => <Action key={day} label={day.slice(0, 3)} secondary onPress={() => setSlots(old => [...old, { day_of_week: day, start_time: "09:00", end_time: "12:00" }])} />)}</View><Action label="Save availability" busy={busy} onPress={saveSchedule} />
     </Card>
   </Page>;

@@ -9,6 +9,7 @@ from app.db.session import get_db_session
 from app.models import User, Booking
 from app.models.learning import LearningItem, Submission, MessageReceipt, LearningAttachment
 from app.schemas.learning import FeedbackCreate, ItemCreate, SubmissionCreate
+from app.services.file_storage import MAX_FILE_BYTES, MAX_FILE_SIZE_LABEL, build_attachment_key, load_attachment, store_attachment
 from app.services.learning_service import create_item, list_items, notify, require_booking, serialize
 
 router = APIRouter()
@@ -21,9 +22,9 @@ async def upload_material(booking_id: int, file: UploadFile = File(...), db: Asy
     await db.refresh(booking)
     if booking.status not in ("confirmed", "completed"):
         raise HTTPException(409, "Materials can only be shared in paid sessions")
-    content = await file.read(8 * 1024 * 1024 + 1)
-    if not content or len(content) > 8 * 1024 * 1024:
-        raise HTTPException(413, "Choose a non-empty file up to 8 MB")
+    content = await file.read(MAX_FILE_BYTES + 1)
+    if not content or len(content) > MAX_FILE_BYTES:
+        raise HTTPException(413, f"Choose a non-empty file up to {MAX_FILE_SIZE_LABEL}")
     formats = [(b"%PDF-", "application/pdf", "pdf"), (b"\x89PNG\r\n\x1a\n", "image/png", "png"), (b"\xff\xd8\xff", "image/jpeg", "jpg")]
     match = next((f for f in formats if content.startswith(f[0])), None)
     if match is None:
@@ -41,7 +42,18 @@ async def upload_material(booking_id: int, file: UploadFile = File(...), db: Asy
     item = LearningItem(booking_id=booking_id, author_id=user.id, kind="resource", title=title, body="Shared lesson file. Only open files you trust.", client_id=identity)
     db.add(item)
     await db.flush()
-    db.add(LearningAttachment(item_id=item.id, filename=f"didaskey-material-{item.id}.{match[2]}", media_type=match[1], size=len(content), content=content))
+    filename = f"didaskey-material-{item.id}.{match[2]}"
+    storage_key = build_attachment_key(booking_id=booking_id, item_id=item.id, filename=filename)
+    storage_driver, stored_content = await store_attachment(key=storage_key, content=content, media_type=match[1])
+    db.add(LearningAttachment(
+        item_id=item.id,
+        filename=filename,
+        media_type=match[1],
+        size=len(content),
+        storage_driver=storage_driver,
+        storage_key=storage_key if storage_driver == "r2" else None,
+        content=stored_content,
+    ))
     notify(db, booking.student_id, "New lesson material", title, booking_id)
     await db.commit()
     return {"item_id": item.id}
@@ -57,7 +69,10 @@ async def download_material(item_id: int, db: AsyncSession = Depends(get_db_sess
     if attachment is None:
         raise HTTPException(404, "File not found")
     await db.refresh(attachment, ["content"])
-    return Response(attachment.content, media_type=attachment.media_type, headers={"Content-Disposition": f'attachment; filename="{attachment.filename}"', "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store", "Content-Security-Policy": "sandbox"})
+    content = await load_attachment(driver=attachment.storage_driver, storage_key=attachment.storage_key, database_content=attachment.content)
+    if not content:
+        raise HTTPException(404, "File not found")
+    return Response(content, media_type=attachment.media_type, headers={"Content-Disposition": f'attachment; filename="{attachment.filename}"', "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store", "Content-Security-Policy": "sandbox"})
 
 
 class ReadPosition(BaseModel):

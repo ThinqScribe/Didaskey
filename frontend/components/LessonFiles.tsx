@@ -7,26 +7,39 @@ import { apiClient } from "@/lib/api/client";
 import { extractErrorMessage } from "@/lib/api/auth";
 import { Action, ui } from "@/components/ui/Workspace";
 
+const MAX_LESSON_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_LESSON_FILE_SIZE_LABEL = "200 MB";
+const LESSON_FILE_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
+];
+
 export function UploadLessonFile({ bookingId, reload }: { bookingId: number; reload: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function upload() {
     setError("");
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/png", "image/jpeg"], copyToCacheDirectory: true, multiple: false });
+      const result = await DocumentPicker.getDocumentAsync({ type: LESSON_FILE_TYPES, copyToCacheDirectory: true, multiple: false });
       if (result.canceled) return;
       const asset = result.assets[0];
-      if (asset.size && asset.size > 8 * 1024 * 1024) { setError("Choose a file no larger than 8 MB."); return; }
+      if (asset.size && asset.size > MAX_LESSON_FILE_BYTES) { setError(`Choose a file no larger than ${MAX_LESSON_FILE_SIZE_LABEL}.`); return; }
       setBusy(true);
       const form = new FormData();
       if (Platform.OS === "web" && asset.file) form.append("file", asset.file, asset.name);
       else form.append("file", { uri: asset.uri, name: asset.name, type: asset.mimeType ?? "application/octet-stream" } as unknown as Blob);
-      await apiClient.post(`/learning/bookings/${bookingId}/files`, form, { headers: { "Content-Type": "multipart/form-data" }, timeout: 60000 });
+      await apiClient.post(`/learning/bookings/${bookingId}/files`, form, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000, maxBodyLength: Infinity, maxContentLength: Infinity });
       await reload();
     } catch (e) { setError(extractErrorMessage(e, "Upload failed. You can safely select the same file and retry.")); }
     finally { setBusy(false); }
   }
-  return <View style={{ gap: 8 }}><Action label="Upload lesson file" secondary busy={busy} onPress={upload} /><Text style={ui.muted}>PDF, PNG or JPEG · up to 8 MB · visible only to this session’s participants and administrators.</Text>{!!error && <Text accessibilityLiveRegion="polite" style={ui.text}>{error}</Text>}</View>;
+  return <View style={{ gap: 8 }}><Action label="Upload lesson file" secondary busy={busy} onPress={upload} /><Text style={ui.muted}>PDF, images, Office files, TXT or CSV · up to {MAX_LESSON_FILE_SIZE_LABEL} · visible only to this session’s participants and administrators.</Text>{!!error && <Text accessibilityLiveRegion="polite" style={ui.text}>{error}</Text>}</View>;
 }
 
 export function DownloadLessonFile({ itemId, filename, mediaType }: { itemId: number; filename: string; mediaType: string }) {

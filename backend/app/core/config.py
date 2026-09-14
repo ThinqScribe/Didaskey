@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = ""
     IMAGEBB_API_KEY: str = ""
 
+    # ── Private file storage ────────────────────────────────────────────────
+    FILE_STORAGE_DRIVER: str = "database"
+    """Attachment storage backend: "database" for local/test, "r2" for Cloudflare R2."""
+
+    R2_BUCKET: str = ""
+    R2_ENDPOINT: str = ""
+    R2_REGION: str = "auto"
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+
     # ── Paystack ──────────────────────────────────────────────────────────────
     PAYSTACK_SECRET_KEY: str =""
     """Server-side Paystack secret key (sk_live_… or sk_test_…). Never exposed to clients."""

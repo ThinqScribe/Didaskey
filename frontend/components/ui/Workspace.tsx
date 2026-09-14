@@ -7,13 +7,13 @@ import { Colors } from "@/constants";
 
 export const ui = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 18, gap: 18, paddingBottom: 120, width: "100%", maxWidth: 760, alignSelf: "center" },
-  title: { fontFamily: "sans-bold", fontSize: 30, letterSpacing: -0.8, color: Colors.foreground },
+  title: { fontFamily: "sans-bold", fontSize: 30, letterSpacing: 0, color: Colors.foreground },
   heading: { fontFamily: "sans-bold", fontSize: 18, color: Colors.foreground },
   text: { fontFamily: "sans-regular", fontSize: 15, lineHeight: 23, color: Colors.foreground },
-  muted: { fontFamily: "sans-medium", fontSize: 13, lineHeight: 20, color: "#62685F" },
+  muted: { fontFamily: "sans-medium", fontSize: 13, lineHeight: 20, color: Colors.mutedForeground },
   row: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
-  card: { backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: 24, padding: 18, gap: 12, shadowColor: "#173D36", shadowOpacity: 0.04, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 1 },
-  field: { backgroundColor: "#FFFFFF", color: Colors.foreground, borderWidth: 1, borderColor: "#D8D2C6", borderRadius: 12, padding: 14, minHeight: 48, fontSize: 15, fontFamily: "sans-regular" },
+  card: { backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, padding: 18, gap: 12, shadowColor: Colors.deepTeal, shadowOpacity: 0.03, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  field: { backgroundColor: Colors.card, color: Colors.foreground, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, padding: 14, minHeight: 48, fontSize: 15, fontFamily: "sans-regular" },
 });
 
 export function Page({ title, subtitle, children, back = true }: { title: string; subtitle?: string; children: ReactNode; back?: boolean }) {
@@ -27,7 +27,7 @@ export function Page({ title, subtitle, children, back = true }: { title: string
 }
 export function Card({ children }: { children: ReactNode }) { return <View style={ui.card}>{children}</View>; }
 export function Action({ label, onPress, busy = false, secondary = false, disabled = false }: { label: string; onPress: () => void; busy?: boolean; secondary?: boolean; disabled?: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => ({ minHeight: 48, borderRadius: 16, paddingHorizontal: 18, paddingVertical: 13, alignItems: "center", justifyContent: "center", borderWidth: secondary ? 1 : 0, borderColor: secondary ? Colors.border : "transparent", backgroundColor: secondary ? Colors.card : Colors.primary, opacity: disabled || busy ? 0.55 : pressed ? 0.78 : 1 })}>
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => ({ minHeight: 48, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 13, alignItems: "center", justifyContent: "center", borderWidth: secondary ? 1 : 0, borderColor: secondary ? Colors.border : "transparent", backgroundColor: secondary ? Colors.card : Colors.primary, opacity: disabled || busy ? 0.55 : pressed ? 0.78 : 1 })}>
     {busy ? <ActivityIndicator color={secondary ? Colors.primary : "white"} /> : <Text style={{ fontFamily: "sans-semibold", fontSize: 14, color: secondary ? Colors.primary : "white" }}>{label}</Text>}
   </Pressable>;
 }

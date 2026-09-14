@@ -16,7 +16,7 @@ export default function QuickLinks() {
 
 const styles = StyleSheet.create({
   row: { gap: 10, paddingVertical: 2 },
-  card: { minWidth: 142, minHeight: 62, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, flexDirection: "row", alignItems: "center", gap: 8 },
-  icon: { width: 34, height: 34, borderRadius: 12, backgroundColor: Colors.paleTeal, alignItems: "center", justifyContent: "center" },
+  card: { minWidth: 142, minHeight: 62, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, flexDirection: "row", alignItems: "center", gap: 8 },
+  icon: { width: 34, height: 34, borderRadius: 8, backgroundColor: Colors.paleTeal, alignItems: "center", justifyContent: "center" },
   label: { flex: 1, fontFamily: "sans-semibold", fontSize: 12, color: Colors.foreground },
 });

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,8 +13,9 @@ from app.core.dependencies import get_current_user
 from app.core.security import decode_token
 from app.db.session import async_session_factory, get_db_session
 from app.models import Booking, User
-from app.models.learning import LearningAttachment, LearningItem, MessageReceipt
+from app.models.learning import LearningAttachment, LearningItem, MessageReceipt, MessageDeliveryReceipt
 from app.schemas.learning import ItemCreate
+from app.services.file_storage import MAX_FILE_BYTES, MAX_FILE_SIZE_LABEL, build_attachment_key, store_attachment
 from app.services.learning_service import create_item, list_items, notify, require_booking, visible_bookings
 
 router = APIRouter()
@@ -24,7 +25,15 @@ ALLOWED_ATTACHMENT_TYPES = {
     b"\x89PNG\r\n\x1a\n": ("image/png", "png"),
     b"\xff\xd8\xff": ("image/jpeg", "jpg"),
 }
-MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
+OFFICE_ATTACHMENT_TYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+TEXT_ATTACHMENT_TYPES = {
+    ".txt": "text/plain",
+    ".csv": "text/csv",
+}
 MAX_REACTIONS_PER_MESSAGE = 8
 
 
@@ -45,6 +54,12 @@ class MessagePayload(BaseModel):
     body: str = Field(min_length=1, max_length=20000)
     client_id: str | None = Field(default=None, min_length=1, max_length=100)
     reply_to_item_id: int | None = Field(default=None, gt=0)
+
+
+class EditMessagePayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    body: str = Field(min_length=1, max_length=20000)
 
 
 class ChatConnectionManager:
@@ -105,6 +120,28 @@ def _attachment_signature(content: bytes, booking_id: int, user_id: int) -> str:
     return f"chat-file-{booking_id}-{user_id}-{hashlib.sha256(content).hexdigest()}"
 
 
+def _clean_filename(filename: str | None) -> str:
+    return (filename or "Shared document").replace("\\", "/").split("/")[-1][:160] or "Shared document"
+
+
+def _attachment_type(content: bytes, filename: str) -> tuple[str, str] | None:
+    match = next((value for signature, value in ALLOWED_ATTACHMENT_TYPES.items() if content.startswith(signature)), None)
+    if match is not None:
+        return match
+    lowered = filename.lower()
+    extension = next((ext for ext in OFFICE_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
+    if extension and content.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
+        return OFFICE_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
+    extension = next((ext for ext in TEXT_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
+    if extension:
+        try:
+            content.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return TEXT_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
+    return None
+
+
 async def _message_response(db: AsyncSession, user: User, booking_id: int, item_id: int) -> dict[str, Any]:
     rows = await list_items(db, user, booking_id, after=max(0, item_id - 1), limit=1)
     return rows[0] if rows else {}
@@ -124,6 +161,23 @@ async def _mark_read(db: AsyncSession, user: User, booking_id: int, last_item_id
     elif item.id > receipt.last_item_id:
         receipt.last_item_id = item.id
         receipt.read_at = datetime.now(timezone.utc)
+    await db.commit()
+
+
+async def _mark_delivered(db: AsyncSession, user: User, booking_id: int, last_item_id: int) -> None:
+    booking = await require_booking(db, user, booking_id)
+    if user.id not in (booking.student_id, booking.tutor.user_id):
+        raise HTTPException(403, "Only session participants can mark messages delivered")
+    item = await db.get(LearningItem, last_item_id)
+    if item is None or item.booking_id != booking_id or item.kind != "message":
+        raise HTTPException(404, "Message not found")
+    await db.scalar(select(Booking.id).where(Booking.id == booking_id).with_for_update())
+    receipt = await db.get(MessageDeliveryReceipt, (booking_id, user.id))
+    if receipt is None:
+        db.add(MessageDeliveryReceipt(booking_id=booking_id, user_id=user.id, last_item_id=item.id, delivered_at=datetime.now(timezone.utc)))
+    elif item.id > receipt.last_item_id:
+        receipt.last_item_id = item.id
+        receipt.delivered_at = datetime.now(timezone.utc)
     await db.commit()
 
 
@@ -224,52 +278,62 @@ async def publish_message(
 async def upload_message_attachment(
     booking_id: int,
     file: UploadFile = File(...),
-    reply_to_item_id: int | None = Query(default=None, gt=0),
+    body: str | None = Form(default=None, min_length=1, max_length=20000),
+    client_id: str | None = Form(default=None, min_length=1, max_length=100),
+    reply_to_item_id_form: int | None = Form(default=None, alias="reply_to_item_id", gt=0),
+    reply_to_item_id_query: int | None = Query(default=None, alias="reply_to_item_id", gt=0),
     db: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ):
     booking = await require_booking(db, user, booking_id)
     if booking.status not in ("confirmed", "completed"):
         raise HTTPException(409, "Messages open after payment confirmation")
-    content = await file.read(MAX_ATTACHMENT_BYTES + 1)
-    if not content or len(content) > MAX_ATTACHMENT_BYTES:
-        raise HTTPException(413, "Choose a non-empty file up to 8 MB")
-    match = next((value for signature, value in ALLOWED_ATTACHMENT_TYPES.items() if content.startswith(signature)), None)
+    content = await file.read(MAX_FILE_BYTES + 1)
+    if not content or len(content) > MAX_FILE_BYTES:
+        raise HTTPException(413, f"Choose a non-empty file up to {MAX_FILE_SIZE_LABEL}")
+    title = _clean_filename(file.filename)
+    match = _attachment_type(content, title)
     if match is None:
-        raise HTTPException(415, "Only PDF, PNG and JPEG files are supported")
+        raise HTTPException(415, "Only PDF, image, Office, text and CSV files are supported")
+    reply_to_item_id = reply_to_item_id_form or reply_to_item_id_query
     if reply_to_item_id is not None:
         reply = await db.get(LearningItem, reply_to_item_id)
         if reply is None or reply.booking_id != booking_id or reply.kind != "message":
             raise HTTPException(404, "Message being replied to was not found")
 
     media_type, extension = match
-    identity = _attachment_signature(content, booking_id, user.id)
+    identity = client_id or _attachment_signature(content, booking_id, user.id)
     existing = await db.scalar(select(LearningItem).where(LearningItem.author_id == user.id, LearningItem.client_id == identity))
     if existing is not None:
         response = await _message_response(db, user, booking_id, existing.id)
         await manager.broadcast(booking_id, {"type": "message", "message": response})
         return response
 
-    title = (file.filename or "Shared document").replace("\\", "/").split("/")[-1][:160]
+    message_body = (body or "").strip() or f"Shared {title}"
     await db.scalar(select(Booking.id).where(Booking.id == booking_id).with_for_update())
     item = LearningItem(
         booking_id=booking_id,
         author_id=user.id,
         kind="message",
         title=title,
-        body=f"Shared {title}",
+        body=message_body,
         client_id=identity,
         reply_to_item_id=reply_to_item_id,
         extra={"attachment_kind": "document"},
     )
     db.add(item)
     await db.flush()
+    filename = f"didaskey-chat-{item.id}.{extension}"
+    storage_key = build_attachment_key(booking_id=booking_id, item_id=item.id, filename=filename)
+    storage_driver, stored_content = await store_attachment(key=storage_key, content=content, media_type=media_type)
     db.add(LearningAttachment(
         item_id=item.id,
-        filename=f"didaskey-chat-{item.id}.{extension}",
+        filename=filename,
         media_type=media_type,
         size=len(content),
-        content=content,
+        storage_driver=storage_driver,
+        storage_key=storage_key if storage_driver == "r2" else None,
+        content=stored_content,
     ))
     recipient = booking.tutor.user_id if user.id == booking.student_id else booking.student_id
     notify(db, recipient, f"New file from {user.first_name}", title, booking_id)
@@ -288,6 +352,18 @@ async def mark_read(
 ):
     await _mark_read(db, user, booking_id, payload.last_item_id)
     await manager.broadcast(booking_id, {"type": "read", "booking_id": booking_id, "user_id": user.id, "last_item_id": payload.last_item_id})
+    return {"status": "ok"}
+
+
+@router.put("/bookings/{booking_id}/delivered")
+async def mark_delivered(
+    booking_id: int,
+    payload: ReadPosition,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+):
+    await _mark_delivered(db, user, booking_id, payload.last_item_id)
+    await manager.broadcast(booking_id, {"type": "delivered", "booking_id": booking_id, "user_id": user.id, "last_item_id": payload.last_item_id})
     return {"status": "ok"}
 
 
@@ -325,6 +401,59 @@ async def toggle_reaction(
     await db.commit()
     response = await _message_response(db, user, booking_id, item.id)
     await manager.broadcast(booking_id, {"type": "reaction", "message": response})
+    return response
+
+
+@router.put("/bookings/{booking_id}/messages/{item_id}")
+async def edit_message(
+    booking_id: int,
+    item_id: int,
+    payload: EditMessagePayload,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+):
+    await require_booking(db, user, booking_id)
+    await db.scalar(select(LearningItem.id).where(LearningItem.id == item_id).with_for_update())
+    item = await db.get(LearningItem, item_id)
+    if item is None or item.booking_id != booking_id or item.kind != "message":
+        raise HTTPException(404, "Message not found")
+    if item.author_id != user.id:
+        raise HTTPException(403, "Only the sender can edit this message")
+    extra = dict(item.extra or {})
+    if extra.get("deleted_at"):
+        raise HTTPException(409, "Deleted messages cannot be edited")
+    item.body = payload.body
+    extra["edited_at"] = datetime.now(timezone.utc).isoformat()
+    item.extra = extra
+    await db.commit()
+    response = await _message_response(db, user, booking_id, item.id)
+    await manager.broadcast(booking_id, {"type": "message", "message": response})
+    return response
+
+
+@router.delete("/bookings/{booking_id}/messages/{item_id}")
+async def delete_message(
+    booking_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+):
+    await require_booking(db, user, booking_id)
+    await db.scalar(select(LearningItem.id).where(LearningItem.id == item_id).with_for_update())
+    item = await db.get(LearningItem, item_id)
+    if item is None or item.booking_id != booking_id or item.kind != "message":
+        raise HTTPException(404, "Message not found")
+    if item.author_id != user.id:
+        raise HTTPException(403, "Only the sender can delete this message")
+    extra = dict(item.extra or {})
+    if not extra.get("deleted_at"):
+        extra["deleted_at"] = datetime.now(timezone.utc).isoformat()
+        item.body = "This message was deleted"
+        item.title = ""
+        item.extra = extra
+        await db.commit()
+    response = await _message_response(db, user, booking_id, item.id)
+    await manager.broadcast(booking_id, {"type": "message", "message": response})
     return response
 
 
@@ -373,6 +502,13 @@ async def messages_ws(websocket: WebSocket, booking_id: int, token: str | None =
                     await manager.broadcast(booking_id, {"type": "message", "message": message})
                 elif event_type == "typing":
                     await manager.broadcast(booking_id, {"type": "typing", "booking_id": booking_id, "user_id": user.id, "is_typing": bool(payload.get("is_typing"))})
+                elif event_type == "delivered":
+                    try:
+                        last_item_id = int(payload.get("last_item_id", 0))
+                        await _mark_delivered(db, user, booking_id, last_item_id)
+                        await manager.broadcast(booking_id, {"type": "delivered", "booking_id": booking_id, "user_id": user.id, "last_item_id": last_item_id})
+                    except (TypeError, ValueError, HTTPException):
+                        await websocket.send_json({"type": "error", "detail": "Delivery position is invalid"})
                 elif event_type == "read":
                     try:
                         last_item_id = int(payload.get("last_item_id", 0))

@@ -23,7 +23,7 @@ import QuickLinks from "@/components/QuickLinks";
 
 function WeekStatCard({ value, label }: { value: string; label: string }) {
   return (
-    <View style={{ width: "48%", padding: 13, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.08)" }}>
+    <View style={{ width: "48%", padding: 13, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.08)" }}>
       <Text className="text-[19px] font-sans-bold text-white">{value}</Text>
       <Text className="text-[11px] font-sans-medium mt-1" style={{ color: "#B9D9D3" }}>
         {label}
@@ -41,7 +41,7 @@ function UpcomingCard({ booking }: { booking: BookingResponse }) {
 
   return (
     <View className="flex-row items-center py-3 border-b border-border">
-      <View className="w-9 h-9 rounded-[13px] bg-muted items-center justify-center mr-3">
+      <View className="w-9 h-9 rounded-lg bg-muted items-center justify-center mr-3">
         <Ionicons name="school-outline" size={15} color={Colors.deepTeal} />
       </View>
       <View className="flex-1">
@@ -69,7 +69,7 @@ function RecentActivityCard({ booking }: { booking: BookingResponse }) {
   return (
     <View className="flex-row items-center py-3 border-b border-border">
       <View
-        className="w-8 h-8 rounded-xl items-center justify-center mr-3"
+        className="w-8 h-8 rounded-lg items-center justify-center mr-3"
         style={{ backgroundColor: `${Colors.teal}15` }}
       >
         <Ionicons name="checkmark-circle-outline" size={15} color={Colors.teal} />
@@ -161,7 +161,7 @@ export default function TutorDashboard() {
     {/* Profile Info */}
     <View className="flex-1 flex-row items-center">
       {/* Avatar */}
-      <View className="w-12 h-12 rounded-[16px] items-center justify-center mr-3" style={{ backgroundColor: Colors.paleTeal }}>
+      <View className="w-12 h-12 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: Colors.paleTeal }}>
         <Text className="text-[17px] font-sans-bold text-deep-teal">
           {(profile?.display_name ??
             `${user?.first_name} ${user?.last_name}`)
@@ -172,7 +172,7 @@ export default function TutorDashboard() {
 
       <View className="flex-1">
         <Text className="text-[12px] font-sans-medium text-muted-foreground mb-0.5">
-          Welcome back 👋
+          Welcome back
         </Text>
 
         <Text
@@ -212,7 +212,7 @@ export default function TutorDashboard() {
     {/* Notifications */}
     <Pressable
       onPress={() => router.push("/notifications")}
-      className="w-11 h-11 rounded-[16px] bg-card border border-border items-center justify-center"
+      className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center"
       style={{
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -236,7 +236,7 @@ export default function TutorDashboard() {
         <View className="mb-5"><QuickLinks /></View>
 
         {/* Week overview banner */}
-        <View className="rounded-[28px] px-5 py-5 mb-5"
+        <View className="rounded-lg px-5 py-5 mb-5"
           style={{ backgroundColor: Colors.deepTeal }}>
           <Text className="text-[11px] font-sans-bold uppercase mb-3"
             style={{ color: `${Colors.softMint}80` }}>
@@ -261,7 +261,7 @@ export default function TutorDashboard() {
           </Pressable>
         </View>
 
-        <View className="bg-card rounded-[24px] px-4 mb-5"
+        <View className="bg-card rounded-lg px-4 mb-5"
           style={{ borderWidth: 1, borderColor: Colors.border }}>
           {upcoming.length === 0 ? (
             <View className="items-center py-6">
@@ -286,7 +286,7 @@ export default function TutorDashboard() {
           </Pressable>
         </View>
 
-        <View className="bg-card rounded-[24px] px-4 mb-5"
+        <View className="bg-card rounded-lg px-4 mb-5"
           style={{ borderWidth: 1, borderColor: Colors.border }}>
           {recentCompleted.length === 0 ? (
             <View className="items-center py-6">

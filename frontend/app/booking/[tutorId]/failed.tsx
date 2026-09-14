@@ -120,7 +120,7 @@ export default function PaymentFailedScreen() {
         {/* ── Reason banner (shown only when a reason is passed) ──────────── */}
         {!!params.reason && (
           <View
-            className="flex-row items-start gap-2 rounded-xl px-4 py-3 w-full mb-5"
+            className="flex-row items-start gap-2 rounded-lg px-4 py-3 w-full mb-5"
             style={{
               backgroundColor: `${Colors.destructive}10`,
               borderWidth: 1,
@@ -142,7 +142,7 @@ export default function PaymentFailedScreen() {
         )}
 
         {/* ── Booking details card ─────────────────────────────────────────── */}
-        <View className="w-full bg-white rounded-tl-3xl rounded-br-3xl border border-border px-4 py-2 mb-5">
+        <View className="w-full bg-white rounded-lg border border-border px-4 py-2 mb-5">
           {/* Tutor / subject header */}
           <View className="flex-row items-center gap-3 py-3 border-b border-border">
             <View className="w-10 h-10 rounded-full bg-muted items-center justify-center">
@@ -178,7 +178,7 @@ export default function PaymentFailedScreen() {
         </View>
 
         {/* ── What happens next ────────────────────────────────────────────── */}
-        <View className="w-full bg-white rounded-xl border border-border px-4 py-4 mb-6">
+        <View className="w-full bg-white rounded-lg border border-border px-4 py-4 mb-6">
           <Text className="text-[13px] font-sans-bold text-charcoal mb-3">
             What happens next?
           </Text>
@@ -231,7 +231,7 @@ export default function PaymentFailedScreen() {
           {/* Primary: retry payment */}
           <Pressable
             onPress={handleRetry}
-            className="rounded-xl bg-deep-teal items-center py-4 active:opacity-80"
+            className="rounded-lg bg-deep-teal items-center py-3.5 active:opacity-80"
           >
             <View className="flex-row items-center gap-2">
               <Ionicons name="refresh-outline" size={18} color={Colors.white} />
@@ -244,7 +244,7 @@ export default function PaymentFailedScreen() {
           {/* Secondary: go to bookings */}
           <Pressable
             onPress={handleViewBookings}
-            className="rounded-xl border border-border bg-white items-center py-4 active:opacity-80"
+            className="rounded-lg border border-border bg-white items-center py-3.5 active:opacity-80"
           >
             <Text className="text-[15px] font-sans-semibold text-charcoal">
               View My Bookings

@@ -104,12 +104,12 @@ function SessionCard({ booking }: { booking: BookingResponse }) {
   const amount = parseFloat(booking.amount);
 
   return (
-    <View className="bg-card rounded-[24px] border border-border px-4 py-4 mb-3">
+    <View className="bg-card rounded-lg border border-border px-4 py-4 mb-3">
       {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center gap-2">
           {/* Date */}
-          <View className="w-10 h-10 rounded-xl bg-deep-teal items-center justify-center">
+          <View className="w-10 h-10 rounded-lg bg-deep-teal items-center justify-center">
             <Text className="text-[10px] font-sans-bold text-soft-mint">
               {monthLabel}
             </Text>
@@ -158,7 +158,7 @@ function SessionCard({ booking }: { booking: BookingResponse }) {
       </View>
 
       {/* Details */}
-      <View className="flex-row bg-background rounded-xl px-3 py-3 mb-3">
+      <View className="flex-row bg-muted rounded-lg px-3 py-3 mb-3">
         {/* Date */}
         <View className="flex-1 flex-row items-center gap-2">
           <Ionicons
@@ -346,7 +346,7 @@ export default function TutorSessions() {
               </Text>
             </View>
 
-            <View className="w-11 h-11 rounded-2xl bg-deep-teal items-center justify-center">
+            <View className="w-11 h-11 rounded-lg bg-deep-teal items-center justify-center">
               <Ionicons
                 name="calendar"
                 size={21}

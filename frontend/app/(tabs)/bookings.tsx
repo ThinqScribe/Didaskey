@@ -203,7 +203,6 @@ function FeaturedBooking({
     <View style={styles.featuredCard}>
       <View style={styles.featuredTop}>
         <Text style={styles.featuredEyebrow}>Next lesson</Text>
-        <Ionicons name="ellipsis-vertical" size={25} color="#FFFFFF" />
       </View>
       <View style={styles.featuredMain}>
         <View style={styles.featuredDate}>
@@ -318,15 +317,17 @@ function LaterBooking({
           <Text style={styles.laterDaysText}>{isPending && paying ? "Paying" : daysUntil(booking.scheduled_at)}</Text>
         </View>
         <View style={styles.laterActionRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Booking actions"
-            hitSlop={8}
-            onPress={() => canCancel(booking) && onCancel(booking.id)}
-            style={({ pressed }) => [pressed && styles.pressed]}
-          >
-            <Ionicons name="ellipsis-vertical" size={21} color={NAVY} />
-          </Pressable>
+          {canCancel(booking) ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel booking"
+              hitSlop={8}
+              onPress={() => onCancel(booking.id)}
+              style={({ pressed }) => [styles.laterCancel, pressed && styles.pressed]}
+            >
+              <Text style={styles.laterCancelText}>Cancel</Text>
+            </Pressable>
+          ) : null}
           <Ionicons name="chevron-forward" size={23} color={NAVY} />
         </View>
       </View>
@@ -653,9 +654,9 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F4F4F5",
+    backgroundColor: Colors.muted,
     borderWidth: 1,
-    borderColor: "#DAD9D5",
+    borderColor: Colors.border,
   },
   notificationDot: {
     position: "absolute",
@@ -699,12 +700,12 @@ const styles = StyleSheet.create({
   },
   segment: {
     minHeight: 46,
-    borderRadius: 23,
+    borderRadius: 8,
     flexDirection: "row",
     overflow: "hidden",
-    backgroundColor: "#F0F0F2",
+    backgroundColor: Colors.muted,
     borderWidth: 1,
-    borderColor: "#DAD9D5",
+    borderColor: Colors.border,
   },
   segmentItem: {
     flex: 1,
@@ -735,12 +736,10 @@ const styles = StyleSheet.create({
     top: 11,
     bottom: 11,
     width: 1,
-    backgroundColor: "#D2D0C9",
+    backgroundColor: Colors.border,
   },
   featuredCard: {
-    borderRadius: 20,
-    borderTopRightRadius: 2,
-    borderBottomLeftRadius: 2,
+    borderRadius: 8,
     padding: 15,
     marginBottom: 24,
     backgroundColor: NAVY,
@@ -771,7 +770,7 @@ const styles = StyleSheet.create({
   featuredDate: {
     width: 58,
     height: 62,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.13)",
@@ -892,7 +891,7 @@ const styles = StyleSheet.create({
   },
   detailsButton: {
     minHeight: 42,
-    borderRadius: 21,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -935,13 +934,13 @@ const styles = StyleSheet.create({
   },
   monthPill: {
     minHeight: 34,
-    borderRadius: 17,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 11,
     borderWidth: 1,
-    borderColor: "#DAD9D5",
+    borderColor: Colors.border,
     backgroundColor: Colors.card,
   },
   monthPillText: {
@@ -956,9 +955,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
     padding: 12,
-    borderRadius: 22,
-    borderTopRightRadius: 2,
-    borderBottomLeftRadius: 2,
+    borderRadius: 8,
     backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: "rgba(7,29,58,0.06)",
@@ -971,10 +968,10 @@ const styles = StyleSheet.create({
   laterDate: {
     width: 54,
     height: 64,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F5F7FA",
+    backgroundColor: Colors.muted,
     borderWidth: 1,
     borderColor: "rgba(7,29,58,0.06)",
   },
@@ -1044,12 +1041,12 @@ const styles = StyleSheet.create({
   },
   laterDays: {
     minHeight: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 8,
-    backgroundColor: "#F4F6FA",
+    backgroundColor: Colors.muted,
     borderWidth: 1,
     borderColor: "rgba(7,29,58,0.05)",
   },
@@ -1061,19 +1058,27 @@ const styles = StyleSheet.create({
   laterActionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
+  },
+  laterCancel: {
+    minHeight: 30,
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  laterCancelText: {
+    fontFamily: "sans-bold",
+    fontSize: 12,
+    color: Colors.destructive,
   },
   calendarBanner: {
     minHeight: 82,
-    borderRadius: 18,
-    borderTopRightRadius: 2,
-    borderBottomLeftRadius: 2,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     marginTop: 18,
     padding: 14,
-    backgroundColor: "#CFFAF5",
+    backgroundColor: Colors.paleTeal,
     borderWidth: 1,
     borderColor: "rgba(7,29,58,0.06)",
     shadowColor: NAVY,
@@ -1085,7 +1090,7 @@ const styles = StyleSheet.create({
   bannerIcon: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },

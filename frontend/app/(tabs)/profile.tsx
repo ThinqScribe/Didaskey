@@ -29,7 +29,7 @@ import {
 const NAVY = "#071D3A";
 const MUTED_NAVY = "#66718E";
 const LIME = "#BFFF4B";
-const CARD_BORDER = "#E1DFDA";
+const CARD_BORDER = Colors.border;
 
 const EDUCATION_LABELS: Record<string, string> = {
   primary_school: "Primary School",
@@ -275,24 +275,14 @@ export default function StudentProfile() {
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <Text style={styles.pageTitle}>Profile</Text>
-          <View style={styles.headerActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open profile settings"
-              onPress={showSettings}
-              style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}
-            >
-              <Ionicons name="settings-outline" size={27} color={NAVY} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open more profile options"
-              onPress={showSettings}
-              style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}
-            >
-              <Ionicons name="ellipsis-vertical" size={26} color={NAVY} />
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open profile settings"
+            onPress={showSettings}
+            style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="settings-outline" size={25} color={NAVY} />
+          </Pressable>
         </View>
       </View>
 
@@ -435,7 +425,7 @@ const styles = StyleSheet.create({
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: "#D4D3CF",
+    borderBottomColor: Colors.border,
   },
   headerInner: {
     width: "100%",
@@ -453,15 +443,10 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     color: NAVY,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
   circleButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.card,
@@ -477,7 +462,7 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     overflow: "hidden",
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: NAVY,
     shadowColor: NAVY,
     shadowOffset: { width: 0, height: 14 },
@@ -509,7 +494,7 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#EDE7DD",
+    backgroundColor: Colors.muted,
   },
   cameraButton: {
     position: "absolute",
@@ -551,7 +536,7 @@ const styles = StyleSheet.create({
   },
   editButton: {
     minHeight: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 17,
@@ -602,7 +587,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#D6D4D0",
+    borderBottomColor: Colors.border,
   },
   tabItem: {
     flex: 1,
@@ -629,7 +614,7 @@ const styles = StyleSheet.create({
     backgroundColor: LIME,
   },
   card: {
-    borderRadius: 14,
+    borderRadius: 8,
     marginBottom: 12,
     paddingHorizontal: 16,
     paddingTop: 15,
@@ -664,7 +649,7 @@ const styles = StyleSheet.create({
   },
   cardDivider: {
     height: 1,
-    backgroundColor: "#DAD8D2",
+    backgroundColor: Colors.border,
   },
   detailRow: {
     minHeight: 58,
@@ -674,7 +659,7 @@ const styles = StyleSheet.create({
   },
   detailBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "#DAD8D2",
+    borderBottomColor: Colors.border,
   },
   detailIcon: {
     width: 30,
@@ -724,12 +709,12 @@ const styles = StyleSheet.create({
   },
   sessionBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "#DAD8D2",
+    borderBottomColor: Colors.border,
   },
   sessionIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -750,7 +735,7 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     minHeight: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

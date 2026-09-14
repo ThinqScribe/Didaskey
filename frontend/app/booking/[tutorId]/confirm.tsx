@@ -278,7 +278,7 @@ export default function ConfirmScreen() {
             </Text>
 
             {/* Tutor card */}
-            <View className="bg-white rounded-xl border border-border px-4 py-4 mb-3">
+            <View className="bg-white rounded-lg border border-border px-4 py-4 mb-3">
               <View className="flex-row items-center gap-3">
                 <View className="w-10 h-10 rounded-full bg-muted items-center justify-center">
                   <Ionicons name="person" size={18} color={Colors.deepTeal} />
@@ -295,7 +295,7 @@ export default function ConfirmScreen() {
             </View>
 
             {/* Session details */}
-            <View className="bg-white rounded-tl-3xl border border-border px-4 mb-3">
+            <View className="bg-white rounded-lg border border-border px-4 mb-3">
               <DetailRow icon="layers-outline" label="Session Type" value="1-on-1 Online" />
               <DetailRow icon="calendar-outline" label="Date" value={dateLabel} />
               <DetailRow icon="time-outline" label="Time" value={timeLabel} />
@@ -310,7 +310,7 @@ export default function ConfirmScreen() {
             </View>
 
             {/* Price breakdown */}
-            <View className="bg-white rounded-tr-3xl border border-border px-4 py-3 mb-2">
+            <View className="bg-white rounded-lg border border-border px-4 py-3 mb-2">
               <Text className="text-[13px] font-sans-bold text-charcoal mb-1">Price Breakdown</Text>
               <PriceRow label={`Tutor Fee (${durationLabel})`} value={formatCurrency(tutorFee, currency)} />
               <PriceRow label="Platform Fee" value={formatCurrency(platformFee, currency)} />
@@ -319,7 +319,7 @@ export default function ConfirmScreen() {
             </View>
 
             {!!error && (
-              <View className="flex-row items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+              <View className="flex-row items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
                 <Ionicons name="alert-circle-outline" size={16} color={Colors.destructive} />
                 <Text className="flex-1 text-[13px] font-sans-medium text-destructive">{error}</Text>
               </View>
@@ -335,7 +335,7 @@ export default function ConfirmScreen() {
             {/* Paystack option */}
             <Pressable
               onPress={() => setWebVisible(true)}
-              className="flex-row items-center bg-white rounded-xl border border-border px-4 py-4 gap-3 mb-3 active:opacity-80"
+              className="flex-row items-center bg-white rounded-lg border border-border px-4 py-4 gap-3 mb-3 active:opacity-80"
             >
               <View className="w-10 h-10 rounded-xl bg-muted items-center justify-center">
                 <Ionicons name="card-outline" size={20} color={Colors.deepTeal} />
@@ -352,7 +352,7 @@ export default function ConfirmScreen() {
             </Pressable>
 
             {/* Order summary */}
-            <View className="bg-white rounded-tr-3xl rounded-bl-3xl border border-border px-4 py-3 mb-5 mt-2">
+            <View className="bg-white rounded-lg border border-border px-4 py-3 mb-5 mt-2">
               <View className="flex-row items-center gap-3 mb-3">
                 <View className="w-9 h-9 rounded-full bg-muted items-center justify-center">
                   <Ionicons name="person" size={16} color={Colors.deepTeal} />
@@ -382,7 +382,7 @@ export default function ConfirmScreen() {
             </View>
 
             {!!error && (
-              <View className="flex-row items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+              <View className="flex-row items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
                 <Ionicons name="alert-circle-outline" size={16} color={Colors.destructive} />
                 <Text className="flex-1 text-[13px] font-sans-medium text-destructive">{error}</Text>
               </View>
@@ -400,7 +400,7 @@ export default function ConfirmScreen() {
 
       {/* Sticky CTA */}
       <View
-        className="absolute rounded-2xl mx-2 bottom-0 left-0 right-0 bg-background border-t border-border"
+        className="absolute bottom-0 left-0 right-0 bg-card border-t border-border"
         style={{
           borderTopWidth: 1,
           borderTopColor: Colors.border,
@@ -413,7 +413,7 @@ export default function ConfirmScreen() {
           <Pressable
             onPress={handleContinueToPayment}
             disabled={loading}
-            className="rounded-xl bg-deep-teal items-center py-4 active:opacity-80"
+            className="rounded-lg bg-deep-teal items-center py-3.5 active:opacity-80"
             style={{ opacity: loading ? 0.7 : 1 }}
           >
             {loading ? (
@@ -425,7 +425,7 @@ export default function ConfirmScreen() {
         ) : (
           <Pressable
             onPress={() => setWebVisible(true)}
-            className="rounded-xl bg-deep-teal items-center py-4 active:opacity-80"
+            className="rounded-lg bg-deep-teal items-center py-3.5 active:opacity-80"
           >
             <Text className="text-[15px] font-sans-bold text-white">
               Pay Securely · {formatCurrency(displayAmount, displayCurrency)}

@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 11,
     paddingHorizontal: 15,
-    backgroundColor: "#F1F1F0",
+    backgroundColor: Colors.muted,
   },
   searchInput: {
     flex: 1,
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 15,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: Colors.muted,
   },
   subjectChipActive: {
     backgroundColor: NAVY,
@@ -683,10 +683,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: Colors.card,
     borderWidth: 1,
-    borderColor: "#DAD9D5",
+    borderColor: Colors.border,
   },
   availabilityPillActive: {
-    backgroundColor: "#F2FFF0",
+    backgroundColor: Colors.paleTeal,
   },
   onlineDot: {
     width: 12,
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
   summaryDivider: {
     width: 1,
     height: 38,
-    backgroundColor: "#D2D0C9",
+    backgroundColor: Colors.border,
   },
   sortPill: {
     minHeight: 36,
@@ -725,10 +725,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: Colors.card,
     borderWidth: 1,
-    borderColor: "#DAD9D5",
+    borderColor: Colors.border,
   },
   sortPillActive: {
-    backgroundColor: "#F2FFF0",
+    backgroundColor: Colors.paleTeal,
   },
   filterPanel: {
     flexDirection: "row",
@@ -736,13 +736,13 @@ const styles = StyleSheet.create({
     gap: 12,
     flexWrap: "wrap",
     marginBottom: 20,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 14,
     backgroundColor: Colors.muted,
   },
   panelChip: {
     minHeight: 44,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 14,
@@ -796,9 +796,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     gap: 10,
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 12,
-    backgroundColor: "#CFFAF5",
+    backgroundColor: Colors.paleTeal,
   },
   featuredContent: {
     flex: 1,
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
   featuredPhotoWrap: {
     width: 88,
     height: 102,
-    borderRadius: 14,
+    borderRadius: 8,
     position: "relative",
   },
   featuredName: {
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   },
   profileButton: {
     minHeight: 38,
-    borderRadius: 14,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
@@ -874,14 +874,14 @@ const styles = StyleSheet.create({
   bookmarkButton: {
     width: 38,
     height: 38,
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   featuredPortrait: {
     width: 88,
     height: 102,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: "#D6DEE4",
   },
   featuredRight: {
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
   },
   rowSeparator: {
     height: 1,
-    backgroundColor: "#DAD8D2",
+    backgroundColor: Colors.border,
   },
   inlineLoader: {
     marginBottom: 16,

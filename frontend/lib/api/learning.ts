@@ -6,7 +6,7 @@ export type ItemKind = "message" | "resource" | "assignment" | "note";
 export interface Submission { id: number; body: string; feedback: string | null; score: number | null; reviewed_at: string | null; submitted_at: string }
 export interface MessageReaction { emoji: string; count: number; mine: boolean }
 export interface ReplyPreview { id: number; author_id: number; author_name: string; body: string; kind: ItemKind }
-export interface LearningItem { id: number; booking_id: number; author_id: number; author_name: string; kind: ItemKind; title: string; body: string; url: string | null; due_at: string | null; client_id?: string | null; created_at: string; submission: Submission | null; read_by_recipient?: boolean; reply_to_item_id?: number | null; reply_to?: ReplyPreview | null; reactions?: MessageReaction[]; attachment?: { filename: string; media_type: string; size: number } | null; extra?: Record<string, unknown> | null; pending?: boolean; failed?: boolean }
+export interface LearningItem { id: number; booking_id: number; author_id: number; author_name: string; kind: ItemKind; title: string; body: string; url: string | null; due_at: string | null; client_id?: string | null; created_at: string; submission: Submission | null; delivered_by_recipient?: boolean; read_by_recipient?: boolean; reply_to_item_id?: number | null; reply_to?: ReplyPreview | null; reactions?: MessageReaction[]; attachment?: { filename: string; media_type: string; size: number } | null; extra?: Record<string, unknown> | null; pending?: boolean; failed?: boolean }
 export interface Conversation { booking_id: number; title: string; counterpart: string; last_message: string | null; last_message_at?: string | null; scheduled_at: string; unread_count?: number; last_read_item_id?: number }
 export interface Notice { id: number; title: string; body: string; read_at: string | null; booking_id: number | null; created_at: string }
 export interface Progress { completed_sessions: number; learning_minutes: number; assignments: number; submitted: number; reviewed: number; pending: number }
@@ -60,17 +60,38 @@ export async function markConversationRead(bookingId: number, lastItemId: number
     await apiClient.put(`/learning/bookings/${bookingId}/read`, { last_item_id: lastItemId });
   }
 }
+export async function markConversationDelivered(bookingId: number, lastItemId: number): Promise<void> {
+  try {
+    await apiClient.put(`/messages/bookings/${bookingId}/delivered`, { last_item_id: lastItemId });
+  } catch (err: any) {
+    if (![404, 405].includes(err?.response?.status)) throw err;
+  }
+}
 export async function reactToMessage(bookingId: number, itemId: number, emoji: string, remove = false): Promise<LearningItem> {
   return (await apiClient.put<LearningItem>(`/messages/bookings/${bookingId}/messages/${itemId}/reaction`, { emoji, remove })).data;
 }
-export async function uploadMessageAttachment(bookingId: number, asset: { uri: string; name: string; mimeType?: string | null; file?: File }, replyToItemId?: number | null): Promise<LearningItem> {
+export async function editConversationMessage(bookingId: number, itemId: number, body: string): Promise<LearningItem> {
+  return (await apiClient.put<LearningItem>(`/messages/bookings/${bookingId}/messages/${itemId}`, { body })).data;
+}
+export async function deleteConversationMessage(bookingId: number, itemId: number): Promise<LearningItem> {
+  return (await apiClient.delete<LearningItem>(`/messages/bookings/${bookingId}/messages/${itemId}`)).data;
+}
+export async function uploadMessageAttachment(
+  bookingId: number,
+  asset: { uri: string; name: string; mimeType?: string | null; file?: File },
+  options: { body?: string; client_id?: string; reply_to_item_id?: number | null } = {},
+): Promise<LearningItem> {
   const form = new FormData();
   if (Platform.OS === "web" && asset.file) form.append("file", asset.file, asset.name);
   else form.append("file", { uri: asset.uri, name: asset.name, type: asset.mimeType ?? "application/octet-stream" } as unknown as Blob);
+  if (options.body) form.append("body", options.body);
+  if (options.client_id) form.append("client_id", options.client_id);
+  if (options.reply_to_item_id) form.append("reply_to_item_id", String(options.reply_to_item_id));
   return (await apiClient.post<LearningItem>(`/messages/bookings/${bookingId}/attachments`, form, {
-    params: replyToItemId ? { reply_to_item_id: replyToItemId } : undefined,
     headers: { "Content-Type": "multipart/form-data" },
-    timeout: 60000,
+    timeout: 300000,
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
   })).data;
 }
 export async function createMessageSocket(bookingId: number): Promise<WebSocket> {

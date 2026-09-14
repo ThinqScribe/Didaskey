@@ -54,12 +54,22 @@ class MessageReceipt(Base):
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class MessageDeliveryReceipt(Base):
+    __tablename__ = "message_delivery_receipts"
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    last_item_id: Mapped[int] = mapped_column(ForeignKey("learning_items.id"))
+    delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class LearningAttachment(Base):
     __tablename__ = "learning_attachments"
     item_id: Mapped[int] = mapped_column(ForeignKey("learning_items.id"), primary_key=True)
     filename: Mapped[str] = mapped_column(String(160))
     media_type: Mapped[str] = mapped_column(String(80))
     size: Mapped[int]
+    storage_driver: Mapped[str] = mapped_column(String(20), default="database")
+    storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
 
 

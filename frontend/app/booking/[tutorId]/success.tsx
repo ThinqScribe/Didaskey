@@ -99,7 +99,7 @@ export default function SuccessScreen() {
 
         {/* ── Booking details card ──────────────────────────────────────────── */}
         <View
-          className="w-full bg-white rounded-tl-3xl rounded-br-3xl border border-border px-4 py-2 mb-5"
+          className="w-full bg-white rounded-lg border border-border px-4 py-2 mb-5"
         >
           {/* Tutor / subject header */}
           <View className="flex-row items-center gap-3 py-3 border-b border-border">
@@ -134,7 +134,7 @@ export default function SuccessScreen() {
         </View>
 
         {/* ── Confirmation note ─────────────────────────────────────────────── */}
-        <View className="flex-row items-start gap-2 bg-teal/10 rounded-xl px-4 py-3 w-full mb-6">
+        <View className="flex-row items-start gap-2 bg-teal/10 rounded-lg px-4 py-3 w-full mb-6">
           <Ionicons name="mail-outline" size={16} color={Colors.teal} />
           <Text className="flex-1 text-[12px] font-sans-medium text-charcoal leading-5">
             A confirmation email has been sent to your inbox with all the session details.
@@ -147,7 +147,7 @@ export default function SuccessScreen() {
             onPress={() => {
               router.replace("/(tabs)/bookings");
             }}
-            className="rounded-xl bg-deep-teal items-center py-4 active:opacity-80"
+            className="rounded-lg bg-deep-teal items-center py-3.5 active:opacity-80"
           >
             <Text className="text-[15px] font-sans-bold text-white">
               Go to My Sessions
@@ -158,7 +158,7 @@ export default function SuccessScreen() {
             onPress={() => {
               void Share.share({ message: `Didaskey lesson: ${params.subjectName || "Tutoring"} with ${params.displayName}. ${dateLabel}, ${timeLabel}. Booking ${bookingRef}.` }).catch(() => undefined);
             }}
-            className="rounded-xl border border-border bg-white items-center py-4 active:opacity-80"
+            className="rounded-lg border border-border bg-white items-center py-3.5 active:opacity-80"
           >
             <View className="flex-row items-center gap-2">
               <Ionicons name="calendar-outline" size={16} color={Colors.deepTeal} />

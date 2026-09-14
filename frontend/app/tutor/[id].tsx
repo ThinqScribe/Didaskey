@@ -5,6 +5,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -15,15 +16,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants";
 import {
   getTutor,
-  getTutorReviews,
   type TutorDetail,
-  type Review,
 } from "@/lib/api/tutors";
 import { formatCurrency } from "@/lib/api/bookings";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 
 import StatBadge from "@/components/tutor/StatBadge";
-import ReviewCard from "@/components/tutor/ReviewCard";
 
 /* ─────────────────────────────────────────────
    Helpers
@@ -41,8 +39,8 @@ function modeLabel(mode: string): string {
 
 function SubjectChip({ name }: { name: string }) {
   return (
-    <View className="rounded-lg border border-border px-3 py-1.5 mr-2 mb-2" style={{ backgroundColor: Colors.background }}>
-      <Text className="text-[11px] font-sans-medium text-charcoal">
+    <View style={styles.subjectChip}>
+      <Text style={styles.subjectChipText}>
         {name}
       </Text>
     </View>
@@ -55,18 +53,10 @@ function SubjectChip({ name }: { name: string }) {
 
 function SectionTitle({ title }: { title: string }) {
   return (
-    <Text className="text-[14px] font-sans-bold text-charcoal mb-2">
+    <Text style={styles.sectionTitle}>
       {title}
     </Text>
   );
-}
-
-/* ─────────────────────────────────────────────
-   Divider
-───────────────────────────────────────────── */
-
-function Divider() {
-  return <View className="h-px bg-border my-4" />;
 }
 
 /* ─────────────────────────────────────────────
@@ -78,9 +68,7 @@ export default function TutorDetailScreen() {
   const tutorId = Number(id);
 
   const [tutor, setTutor] = useState<TutorDetail | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingReviews, setLoadingReviews] = useState(true);
   const [error, setError] = useState(false);
 
   /* ───────────────────────────────────────────
@@ -101,32 +89,14 @@ export default function TutorDetailScreen() {
     }
   }, [tutorId]);
 
-  /* ───────────────────────────────────────────
-     Fetch Reviews
-  ─────────────────────────────────────────── */
-
-  const fetchReviews = useCallback(async () => {
-    setLoadingReviews(true);
-
-    try {
-      const data = await getTutorReviews(tutorId, 1, 5);
-      setReviews(data.items);
-    } catch {
-      setReviews([]);
-    } finally {
-      setLoadingReviews(false);
-    }
-  }, [tutorId]);
-
   useEffect(() => {
     fetchTutor();
-    fetchReviews();
-  }, [fetchTutor, fetchReviews]);
+  }, [fetchTutor]);
 
   const { refreshing, onRefresh } = useRefresh(
     useCallback(async () => {
-      await Promise.all([fetchTutor(), fetchReviews()]);
-    }, [fetchTutor, fetchReviews])
+      await fetchTutor();
+    }, [fetchTutor])
   );
 
   /* ───────────────────────────────────────────
@@ -168,7 +138,7 @@ export default function TutorDetailScreen() {
 
         <Pressable
           onPress={fetchTutor}
-          className="mt-5 px-6 py-3 rounded-full bg-deep-teal active:opacity-80"
+          className="mt-5 px-6 py-3 rounded-lg bg-deep-teal active:opacity-80"
         >
           <Text className="text-[13px] font-sans-bold text-white">
             Retry
@@ -188,30 +158,51 @@ export default function TutorDetailScreen() {
   const subjects = tutor.subjects ?? [];
   const tutorSubjects = tutor.tutor_subjects ?? [];
   const primarySubject = subjects[0]?.name ?? "Tutor";
+  const subjectNames = tutorSubjects.length > 0
+    ? tutorSubjects.map((ts) => ts.subject.name)
+    : subjects.map((subject) => subject.name);
+  const openBooking = () => {
+    router.push({
+      pathname: `/booking/${tutor.id}/slot` as any,
+      params: {
+        tutorId: String(tutor.id),
+        displayName: tutor.display_name,
+        ratePerHour: tutor.rate_per_hour,
+        currency: tutor.currency,
+        teachingMode: tutor.teaching_mode,
+        availabilitySlots: JSON.stringify(tutor.availability_slots),
+        tutorSubjects: JSON.stringify(tutor.tutor_subjects),
+        primarySubject: primarySubject,
+      },
+    });
+  };
 
   return (
     <SafeAreaView
-      className="flex-1 bg-background"
-      edges={["top", "bottom"]}
+      style={styles.screen}
+      edges={["top"]}
     >
       {/* ═══════════════════════════════════════
           TOP NAVIGATION
       ═══════════════════════════════════════ */}
 
-      <View className="flex-row items-center justify-between px-5 py-2" style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          className="w-9 h-9 items-center justify-center"
-        >
-          <Ionicons
-            name="chevron-back"
-            size={23}
-            color={Colors.charcoal}
-          />
-        </Pressable>
+      <View style={styles.topBar}>
+        <View style={styles.topBarInner}>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={10}
+            style={styles.backButton}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={Colors.charcoal}
+            />
+          </Pressable>
 
-        <Text className="text-[12px] font-sans-bold text-teal">TUTOR PROFILE</Text>
+          <Text style={styles.topTitle}>Tutor profile</Text>
+          <View style={styles.backButton} />
+        </View>
       </View>
 
       {/* ═══════════════════════════════════════
@@ -219,6 +210,7 @@ export default function TutorDetailScreen() {
       ═══════════════════════════════════════ */}
 
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -230,9 +222,10 @@ export default function TutorDetailScreen() {
         }
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingBottom: 110,
+          paddingBottom: 72,
+          paddingTop: 2,
           width: "100%",
-          maxWidth: 760,
+          maxWidth: 470,
           alignSelf: "center",
         }}
       >
@@ -240,7 +233,7 @@ export default function TutorDetailScreen() {
             PROFILE HEADER
         ═══════════════════════════════════════ */}
 
-        <View className="flex-row items-center mt-2 mb-5 p-5 rounded-[28px] bg-card border border-border">
+        <View style={styles.profileCard}>
           {/* Avatar */}
 
           <View
@@ -339,11 +332,52 @@ export default function TutorDetailScreen() {
           </View>
         </View>
 
+        <View style={styles.bookingPanel}>
+          <View style={styles.bookingPanelTop}>
+            <View style={styles.pricePill}>
+              <Text style={styles.priceText} numberOfLines={1}>
+                {formatCurrency(rate, tutor.currency, 0)}
+              </Text>
+              <Text style={styles.priceSuffix}>/hr</Text>
+            </View>
+
+            <View style={styles.modePill}>
+              <Ionicons
+                name={
+                  tutor.teaching_mode === "online"
+                    ? "videocam-outline"
+                    : tutor.teaching_mode === "in_person"
+                    ? "location-outline"
+                    : "swap-horizontal-outline"
+                }
+                size={15}
+                color={Colors.deepTeal}
+              />
+              <Text style={styles.modePillText} numberOfLines={1}>
+                {modeLabel(tutor.teaching_mode)}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.bookingTitle}>Ready to start with {tutor.display_name.split(" ")[0] ?? "this tutor"}?</Text>
+          <Text style={styles.bookingCopy}>Pick your subject, choose a time, and confirm the lesson.</Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Book a session with ${tutor.display_name}`}
+            onPress={openBooking}
+            style={({ pressed }) => [styles.bookButton, pressed && { opacity: 0.78 }]}
+          >
+            <Text style={styles.bookButtonText}>Book now</Text>
+            <Ionicons name="arrow-forward" size={19} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
         {/* ═══════════════════════════════════════
             STATS
         ═══════════════════════════════════════ */}
 
-        <View className="flex-row py-3 border-t border-b border-border">
+        <View style={styles.statsCard}>
           <StatBadge
             value={`${tutor.years_of_experience}+`}
             label="Years Exp."
@@ -366,180 +400,294 @@ export default function TutorDetailScreen() {
             ABOUT
         ═══════════════════════════════════════ */}
 
-        {!!tutor.bio && (
-          <>
-            <View className="pt-5">
-              <SectionTitle title="About" />
-
-              <Text
-                className="text-[12px] font-sans-medium text-charcoal leading-[18px]"
-                numberOfLines={4}
-              >
-                {tutor.bio}
-              </Text>
-            </View>
-
-            <Divider />
-          </>
-        )}
+        <View style={styles.infoCard}>
+          <SectionTitle title="About" />
+          <Text style={styles.infoText}>
+            {tutor.bio || `${tutor.display_name} is preparing their tutor profile. You can still book a lesson and confirm fit in chat.`}
+          </Text>
+        </View>
 
         {/* ═══════════════════════════════════════
             SUBJECTS OF EXPERTISE
         ═══════════════════════════════════════ */}
 
-        {(tutorSubjects.length > 0 || subjects.length > 0) && (
-          <>
-            <SectionTitle title="Subjects" />
+        <View style={styles.infoCard}>
+          <SectionTitle title="Subjects" />
 
-            <View className="flex-row flex-wrap">
-              {tutorSubjects.length > 0
-                ? tutorSubjects.map((ts) => (
-                    <SubjectChip
-                      key={ts.subject_id}
-                      name={ts.subject.name}
-                    />
-                  ))
-                : subjects.map((s) => (
-                    <SubjectChip key={s.id} name={s.name} />
-                  ))}
-            </View>
-
-            <Divider />
-          </>
-        )}
+          <View style={styles.subjectList}>
+            {subjectNames.length > 0 ? (
+              subjectNames.map((name) => (
+                <SubjectChip
+                  key={name}
+                  name={name}
+                />
+              ))
+            ) : (
+              <Text style={styles.infoText}>Subjects will appear here after this tutor updates their profile.</Text>
+            )}
+          </View>
+        </View>
 
         {/* ═══════════════════════════════════════
             QUALIFICATIONS
         ═══════════════════════════════════════ */}
 
-        {!!tutor.qualifications && (
-          <>
-            <SectionTitle title="Qualifications" />
+        <View style={styles.infoCard}>
+          <SectionTitle title="Qualifications" />
 
-            <Text className="text-[12px] font-sans-medium text-charcoal leading-[18px]">
-              {tutor.qualifications}
-            </Text>
-
-            <Divider />
-          </>
-        )}
+          <Text style={styles.infoText}>
+            {tutor.qualifications || "Qualifications have not been added yet."}
+          </Text>
+        </View>
 
         {/* ═══════════════════════════════════════
             SESSION FORMAT
         ═══════════════════════════════════════ */}
 
-        <SectionTitle title="Session Format" />
+        <View style={[styles.infoCard, styles.lastInfoCard]}>
+          <SectionTitle title="Session format" />
+          <View style={styles.formatRow}>
+            <View style={styles.formatIcon}>
+              <Ionicons
+                name={
+                  tutor.teaching_mode === "online"
+                    ? "videocam-outline"
+                    : tutor.teaching_mode === "in_person"
+                    ? "person-outline"
+                    : "swap-horizontal-outline"
+                }
+                size={17}
+                color={Colors.deepTeal}
+              />
+            </View>
 
-        <View className="flex-row items-center">
-          <Ionicons
-            name={
-              tutor.teaching_mode === "online"
-                ? "videocam-outline"
-                : tutor.teaching_mode === "in_person"
-                ? "person-outline"
-                : "swap-horizontal-outline"
-            }
-            size={17}
-            color={Colors.deepTeal}
-          />
-
-          <Text className="text-[12px] font-sans-semibold text-charcoal ml-2">
-            {modeLabel(tutor.teaching_mode)}
-          </Text>
-        </View>
-
-        <Divider />
-
-        {/* ═══════════════════════════════════════
-            REVIEWS
-        ═══════════════════════════════════════ */}
-
-        <SectionTitle
-          title={`Reviews${
-            tutor.review_count > 0
-              ? ` (${tutor.review_count})`
-              : ""
-          }`}
-        />
-
-        {loadingReviews ? (
-          <View className="py-8 items-center">
-            <ActivityIndicator
-              size="small"
-              color={Colors.teal}
-            />
-          </View>
-        ) : reviews.length === 0 ? (
-          <View className="py-6 items-center">
-            <Text className="text-[12px] font-sans-medium text-muted-foreground">
-              No reviews yet
+            <Text style={styles.formatText}>
+              {modeLabel(tutor.teaching_mode)}
             </Text>
           </View>
-        ) : (
-          <View className="mt-1">
-            {reviews.map((review) => (
-              <ReviewCard
-                key={review.id}
-                review={review}
-              />
-            ))}
-          </View>
-        )}
+        </View>
+
       </ScrollView>
 
-      {/* ═══════════════════════════════════════
-          STICKY BOOKING BAR
-      ═══════════════════════════════════════ */}
-
-      <View
-        className="absolute bottom-0 left-0 right-0 bg-card"
-        style={{
-          borderTopWidth: 1,
-          borderTopColor: Colors.border,
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 14,
-        }}
-      >
-        <View className="flex-row items-center justify-between" style={{ width: "100%", maxWidth: 760, alignSelf: "center" }}>
-          {/* Price */}
-
-          <View className="flex-row items-baseline">
-            <Text className="text-[20px] font-sans-bold text-charcoal">
-              {formatCurrency(rate, tutor.currency, 0)}
-            </Text>
-
-            <Text className="text-[11px] font-sans-medium text-muted-foreground ml-1">
-              / hour
-            </Text>
-          </View>
-
-          {/* Book */}
-
-          <Pressable
-            className="rounded-full bg-deep-teal px-7 py-3.5 active:opacity-80"
-            onPress={() =>
-              router.push({
-                pathname: `/booking/${tutor.id}/slot` as any,
-                params: {
-                  tutorId: String(tutor.id),
-                  displayName: tutor.display_name,
-                  ratePerHour: tutor.rate_per_hour,
-                  currency: tutor.currency,
-                  teachingMode: tutor.teaching_mode,
-                  availabilitySlots: JSON.stringify(tutor.availability_slots),
-                  tutorSubjects: JSON.stringify(tutor.tutor_subjects),
-                  primarySubject: primarySubject,
-                },
-              })
-            }
-          >
-            <Text className="text-[13px] font-sans-bold text-white">
-              Book a Session
-            </Text>
-          </Pressable>
-        </View>
-      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F5F7FB",
+  },
+  topBar: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#C8D0DD",
+    backgroundColor: Colors.card,
+  },
+  topBarInner: {
+    width: "100%",
+    maxWidth: 470,
+    minHeight: 54,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topTitle: {
+    fontFamily: "sans-bold",
+    fontSize: 17,
+    color: Colors.deepTeal,
+  },
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 14,
+    marginBottom: 14,
+    padding: 18,
+    borderRadius: 8,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: "#C8D0DD",
+    shadowColor: Colors.deepTeal,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  subjectChip: {
+    minHeight: 32,
+    borderRadius: 999,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: Colors.muted,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  subjectChipText: {
+    fontFamily: "sans-semibold",
+    fontSize: 11,
+    color: Colors.deepTeal,
+  },
+  sectionTitle: {
+    marginBottom: 10,
+    fontFamily: "sans-bold",
+    fontSize: 16,
+    color: Colors.deepTeal,
+  },
+  bookingPanel: {
+    marginBottom: 18,
+    borderRadius: 8,
+    padding: 16,
+    backgroundColor: "#D3FAF3",
+    borderWidth: 1,
+    borderColor: "#74D9CF",
+    gap: 12,
+    shadowColor: Colors.deepTeal,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  bookingPanelTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  pricePill: {
+    height: 38,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  priceText: {
+    fontFamily: "sans-bold",
+    fontSize: 16,
+    lineHeight: 20,
+    color: Colors.deepTeal,
+  },
+  priceSuffix: {
+    marginLeft: 3,
+    fontFamily: "sans-medium",
+    fontSize: 11,
+    lineHeight: 15,
+    color: Colors.mutedForeground,
+  },
+  modePill: {
+    minHeight: 38,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 13,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modePillText: {
+    fontFamily: "sans-semibold",
+    fontSize: 12,
+    color: Colors.deepTeal,
+  },
+  bookingTitle: {
+    fontFamily: "sans-bold",
+    fontSize: 18,
+    lineHeight: 23,
+    color: Colors.deepTeal,
+  },
+  bookingCopy: {
+    marginTop: -6,
+    fontFamily: "sans-medium",
+    fontSize: 13,
+    lineHeight: 19,
+    color: Colors.mutedForeground,
+  },
+  bookButton: {
+    minHeight: 52,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.deepTeal,
+  },
+  bookButtonText: {
+    fontFamily: "sans-bold",
+    fontSize: 15,
+    color: "#FFFFFF",
+  },
+  statsCard: {
+    flexDirection: "row",
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginBottom: 14,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: "#C8D0DD",
+    shadowColor: Colors.deepTeal,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 1,
+  },
+  infoCard: {
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 14,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: "#C8D0DD",
+    shadowColor: Colors.deepTeal,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 1,
+  },
+  lastInfoCard: {
+    marginBottom: 0,
+  },
+  infoText: {
+    fontFamily: "sans-medium",
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.foreground,
+  },
+  subjectList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  formatRow: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  formatIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.paleTeal,
+  },
+  formatText: {
+    flex: 1,
+    fontFamily: "sans-bold",
+    fontSize: 14,
+    color: Colors.deepTeal,
+  },
+});

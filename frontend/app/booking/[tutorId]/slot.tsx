@@ -126,7 +126,7 @@ function StepIndicator({ current }: { current: 1 | 2 }) {
 
 function SectionLabel({ title }: { title: string }) {
   return (
-    <Text className="text-[13px] font-sans-semibold text-muted-foreground mb-3 uppercase tracking-wider">
+    <Text className="text-[13px] font-sans-bold text-muted-foreground mb-3">
       {title}
     </Text>
   );
@@ -297,10 +297,10 @@ export default function SlotScreen() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#f4d9b0" }}>
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
       {/* Top safe area + header */}
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#f4d9b0" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: Colors.background }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, width: "100%", maxWidth: 470, alignSelf: "center" }}>
           <Pressable
             onPress={() => (step === 2 ? setStep(1) : router.back())}
             hitSlop={10}
@@ -313,7 +313,9 @@ export default function SlotScreen() {
           </Text>
           <View style={{ width: 36 }} />
         </View>
-        <StepIndicator current={step} />
+        <View style={{ width: "100%", maxWidth: 470, alignSelf: "center" }}>
+          <StepIndicator current={step} />
+        </View>
       </SafeAreaView>
 
       {/* Scrollable content */}
@@ -322,7 +324,7 @@ export default function SlotScreen() {
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: Spacing.xl, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: Spacing.xl, paddingBottom: 24, width: "100%", maxWidth: 470, alignSelf: "center" }}
       >
         {step === 1 ? (
           <Step1
@@ -356,7 +358,7 @@ export default function SlotScreen() {
       </ScrollView>
 
       {/* Sticky CTA — always visible, outside ScrollView */}
-      <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff" }}>
+      <SafeAreaView edges={["bottom"]} style={{ backgroundColor: Colors.card }}>
         <View
           style={{
             borderTopWidth: 1,
@@ -371,9 +373,9 @@ export default function SlotScreen() {
             disabled={step === 2 && !canProceedStep2}
             style={{
               backgroundColor: Colors.deepTeal,
-              borderRadius: 12,
+              borderRadius: 8,
               alignItems: "center",
-              paddingVertical: 16,
+              paddingVertical: 14,
               opacity: step === 2 && !canProceedStep2 ? 0.45 : 1,
             }}
           >
@@ -419,7 +421,7 @@ function Step1({
       </Text>
 
       {/* Session type card */}
-      <View className="bg-white rounded-xl border border-border p-4 mb-6">
+      <View className="bg-white rounded-lg border border-border p-4 mb-6">
         <View className="flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-full bg-muted items-center justify-center">
             <Ionicons name="person" size={18} color={Colors.deepTeal} />
@@ -473,7 +475,7 @@ function Step1({
           <Pressable
             key={d}
             onPress={() => onDurationChange(d)}
-            className={`flex-1 py-3 rounded-xl items-center ${duration === d ? "bg-deep-teal" : "bg-white"}`}
+            className={`flex-1 py-3 rounded-lg border border-border items-center ${duration === d ? "bg-deep-teal" : "bg-white"}`}
           >
             <Text className={`text-[13px] font-sans-bold ${duration === d ? "text-white" : "text-charcoal"}`}>
               {d < 60 ? `${d}m` : `${d / 60}h`}
@@ -491,7 +493,7 @@ function Step1({
               <Pressable
                 key={ts.subject_id}
                 onPress={() => onSubjectChange(ts.subject_id)}
-                className={`flex-row items-center justify-between rounded-xl px-4 py-3 ${
+                className={`flex-row items-center justify-between rounded-lg border border-border px-4 py-3 ${
                   selectedSubjectId === ts.subject_id ? "bg-deep-teal/10" : "bg-white"
                 }`}
               >
@@ -512,7 +514,7 @@ function Step1({
       )}
 
       {/* Tutor summary */}
-      <View className="bg-muted rounded-2xl px-4 py-3 flex-row items-center justify-between">
+      <View className="bg-muted rounded-lg px-4 py-3 flex-row items-center justify-between">
         <View>
           <Text className="text-[13px] font-sans-bold text-charcoal">{displayName}</Text>
           <Text className="text-[12px] font-sans-medium text-muted-foreground">
@@ -533,7 +535,7 @@ function FormatOption({ icon, label, description, selected, onPress }: {
   return (
     <Pressable
       onPress={onPress}
-      className={`flex-row items-center rounded-2xl px-4 py-3 gap-3 ${selected ? "bg-deep-teal/10" : "bg-white"}`}
+      className={`flex-row items-center rounded-lg border border-border px-4 py-3 gap-3 ${selected ? "bg-deep-teal/10" : "bg-white"}`}
     >
       <View className={`w-10 h-10 rounded-full items-center justify-center ${selected ? "bg-deep-teal" : "bg-muted"}`}>
         <Ionicons name={icon as any} size={18} color={selected ? Colors.white : Colors.deepTeal} />
@@ -650,7 +652,7 @@ function Step2({
       {/* Time slots */}
       <View style={{ marginTop: 20 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={{ fontSize: 13, fontFamily: "sans-semibold", color: Colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          <Text style={{ fontSize: 13, fontFamily: "sans-bold", color: Colors.mutedForeground, textTransform: "none", letterSpacing: 0 }}>
             Available Times
           </Text>
           <Text style={{ fontSize: 12, fontFamily: "sans-medium", color: Colors.mutedForeground }}>

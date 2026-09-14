@@ -25,8 +25,11 @@ import { extractErrorMessage } from "@/lib/api/auth";
 import { apiClient } from "@/lib/api/client";
 import {
   createMessageSocket,
+  deleteConversationMessage,
+  editConversationMessage,
   getConversationMessages,
   getConversations,
+  markConversationDelivered,
   markConversationRead,
   reactToMessage,
   sendConversationMessage,
@@ -40,7 +43,10 @@ const NAVY = "#071D3A";
 const LIME = "#BFFF4B";
 const MUTED_NAVY = "#66718E";
 const SOFT_MINT = "#D3FAF3";
-const DIVIDER = "#DAD8D2";
+const DIVIDER = "#DADDE7";
+const MAX_CHAT_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_CHAT_FILE_SIZE_LABEL = "200 MB";
+const MAX_CHAT_ATTACHMENTS = 20;
 const AVATAR_IMAGES: Record<string, string> = {
   "Engr. David Smith": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&fm=jpg&q=80&w=320",
   "David Smith": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&fm=jpg&q=80&w=320",
@@ -53,6 +59,20 @@ const AVATAR_IMAGES: Record<string, string> = {
 };
 
 type Filter = "all" | "unread" | "tutors" | "support";
+type PendingAttachment = {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  size?: number | null;
+  file?: File;
+};
+type SendPlan = {
+  clientId: string;
+  bookingId: number;
+  attachment: PendingAttachment | null;
+  optimistic: LearningItem;
+  replyToId?: number;
+};
 
 function mergeMessage(list: LearningItem[], incoming: LearningItem) {
   const next = list.some(item => item.id === incoming.id || (!!incoming.client_id && item.client_id === incoming.client_id))
@@ -87,6 +107,19 @@ function lessonDateLabel(value: string) {
   return date.toDateString() === today.toDateString()
     ? `Today, ${formatTime(value)}`
     : `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${formatTime(value)}`;
+}
+
+function formatFileSize(size?: number | null) {
+  if (!size) return "Ready to send";
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileKindLabel(mediaType?: string | null, filename = "") {
+  const extension = filename.split(".").pop()?.toUpperCase();
+  if (mediaType?.includes("pdf")) return "PDF";
+  if (mediaType?.startsWith("image/")) return "Image";
+  return extension || "File";
 }
 
 function initials(name: string) {
@@ -136,6 +169,18 @@ function shouldMarkSendFailed(err: any) {
   return typeof status === "number" && status >= 400 && status < 500 && ![408, 409, 429].includes(status);
 }
 
+function isDeletedMessage(message: LearningItem) {
+  return !!message.extra?.deleted_at;
+}
+
+function isEditedMessage(message: LearningItem) {
+  return !!message.extra?.edited_at && !isDeletedMessage(message);
+}
+
+function messageActionKey(message: LearningItem) {
+  return message.client_id ?? String(message.id);
+}
+
 function applyConversationMessage(
   list: Conversation[],
   message: LearningItem,
@@ -160,9 +205,25 @@ function applyReadReceipt(list: LearningItem[], readerId: number, lastItemId: nu
   if (readerId === selfId) return list;
   return list.map(message => (
     message.author_id === selfId && message.id <= lastItemId
-      ? { ...message, read_by_recipient: true }
+      ? { ...message, delivered_by_recipient: true, read_by_recipient: true }
       : message
   ));
+}
+
+function applyDeliveryReceipt(list: LearningItem[], readerId: number, lastItemId: number, selfId?: number) {
+  if (readerId === selfId) return list;
+  return list.map(message => (
+    message.author_id === selfId && message.id <= lastItemId
+      ? { ...message, delivered_by_recipient: true }
+      : message
+  ));
+}
+
+function MessageStatusTicks({ message }: { message: LearningItem }) {
+  if (message.pending) return <Ionicons name="time-outline" size={17} color={MUTED_NAVY} />;
+  if (message.read_by_recipient) return <Ionicons name="checkmark-done" size={17} color="#0D7DFF" />;
+  if (message.delivered_by_recipient) return <Ionicons name="checkmark-done" size={17} color={MUTED_NAVY} />;
+  return <Ionicons name="checkmark" size={17} color={MUTED_NAVY} />;
 }
 
 function ConversationAvatar({ name, support = false, size = 72 }: { name: string; support?: boolean; size?: number }) {
@@ -235,15 +296,20 @@ function AttachmentCard({
   filename,
   mediaType,
   size,
+  pending,
+  failed,
 }: {
   itemId: number;
   filename: string;
   mediaType: string;
   size: number;
+  pending?: boolean;
+  failed?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
   async function download() {
+    if (pending || failed || itemId < 1) return;
     setBusy(true);
     try {
       const { data } = await apiClient.get(`/learning/files/${itemId}`, { responseType: "arraybuffer", timeout: 60000 });
@@ -274,14 +340,14 @@ function AttachmentCard({
   return (
     <View style={styles.fileCard}>
       <View style={styles.pdfIcon}>
-        <Ionicons name="document-text-outline" size={30} color="#C91D24" />
+        <Ionicons name={mediaType.startsWith("image/") ? "image-outline" : "document-text-outline"} size={30} color="#C91D24" />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.fileName} numberOfLines={1}>{filename}</Text>
-        <Text style={styles.fileMeta}>{mediaType.includes("pdf") ? "PDF" : "File"} · {(size / (1024 * 1024)).toFixed(1)} MB</Text>
+        <Text style={styles.fileMeta}>{pending ? "Uploading" : failed ? "Upload failed" : `${fileKindLabel(mediaType, filename)} · ${formatFileSize(size)}`}</Text>
       </View>
-      <Pressable accessibilityRole="button" onPress={download} disabled={busy} style={({ pressed }) => [styles.downloadButton, pressed && styles.pressed]}>
-        {busy ? <ActivityIndicator color={NAVY} /> : <Ionicons name="download-outline" size={27} color={NAVY} />}
+      <Pressable accessibilityRole="button" onPress={download} disabled={busy || pending || failed || itemId < 1} style={({ pressed }) => [styles.downloadButton, pressed && styles.pressed, (pending || failed || itemId < 1) && styles.disabled]}>
+        {busy ? <ActivityIndicator color={NAVY} /> : <Ionicons name={pending ? "time-outline" : "download-outline"} size={27} color={NAVY} />}
       </Pressable>
     </View>
   );
@@ -291,45 +357,90 @@ function MessageBubble({
   message,
   mine,
   peerName,
+  onOpenActions,
+  onResend,
   onReply,
+  onEdit,
+  onDelete,
   onReact,
+  actionOpen,
 }: {
   message: LearningItem;
   mine: boolean;
   peerName: string;
+  onOpenActions: () => void;
+  onResend: () => void;
   onReply: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   onReact: (emoji: string) => void;
+  actionOpen: boolean;
 }) {
-  const showText = !message.attachment || !message.body.startsWith("Shared ");
-  const attachmentOnly = !!message.attachment && !showText;
+  const deleted = isDeletedMessage(message);
+  const showText = deleted || !message.attachment || !message.body.startsWith("Shared ");
+  const attachmentOnly = !deleted && !!message.attachment && !showText;
 
   return (
     <View style={[styles.messageLine, mine && styles.messageLineMine]}>
       {!mine && <ConversationAvatar name={peerName} size={38} />}
       <View style={[styles.messageStack, mine && styles.messageStackMine]}>
-        <Pressable accessibilityRole="button" onPress={onReply} onLongPress={onReply} style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther, attachmentOnly && styles.attachmentBubble]}>
-          {!!message.reply_to && (
+        <Pressable accessibilityRole="button" onPress={onOpenActions} onLongPress={onOpenActions} style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther, attachmentOnly && styles.attachmentBubble]}>
+          {!!message.reply_to && !deleted && (
             <View style={[styles.replyPreview, mine && styles.replyPreviewMine]}>
               <Text style={[styles.replyAuthor, mine && styles.replyAuthorMine]} numberOfLines={1}>{message.reply_to.author_name}</Text>
               <Text style={[styles.replyText, mine && styles.replyTextMine]} numberOfLines={2}>{message.reply_to.body}</Text>
             </View>
           )}
-          {showText && <Text selectable style={[styles.messageText, mine && styles.messageTextMine]}>{message.body}</Text>}
-          {message.attachment && (
+          {showText && <Text selectable style={[styles.messageText, mine && styles.messageTextMine, deleted && styles.deletedMessageText]}>{message.body}</Text>}
+          {!deleted && message.attachment && (
             <AttachmentCard
               itemId={message.id}
               filename={message.title || message.attachment.filename}
               mediaType={message.attachment.media_type}
               size={message.attachment.size}
+              pending={message.pending}
+              failed={message.failed}
             />
           )}
         </Pressable>
         <View style={[styles.bubbleMetaRow, mine && styles.bubbleMetaRowMine]}>
           <Text style={[styles.bubbleTime, message.failed && styles.failedText]}>
-            {message.failed ? "Not sent" : message.pending ? "Sending" : formatTime(message.created_at)}
+            {message.failed ? "Not sent" : message.pending ? "Sending" : `${formatTime(message.created_at)}${isEditedMessage(message) ? " · Edited" : ""}`}
           </Text>
-          {mine && !message.failed && <Ionicons name={message.pending ? "time-outline" : "checkmark-done"} size={17} color={message.pending ? MUTED_NAVY : "#0D7DFF"} />}
+          {mine && !message.failed && !isDeletedMessage(message) && <MessageStatusTicks message={message} />}
         </View>
+        {mine && message.failed && (
+          <View style={styles.failedActions}>
+            <Pressable accessibilityRole="button" onPress={onResend} style={({ pressed }) => [styles.failedAction, pressed && styles.pressed]}>
+              <Ionicons name="refresh" size={15} color={NAVY} />
+              <Text style={styles.failedActionText}>Resend</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={onDelete} style={({ pressed }) => [styles.failedAction, pressed && styles.pressed]}>
+              <Ionicons name="trash-outline" size={15} color={NAVY} />
+              <Text style={styles.failedActionText}>Delete</Text>
+            </Pressable>
+          </View>
+        )}
+        {actionOpen && !message.pending && !message.failed && !deleted && (
+          <View style={[styles.messageActions, mine && styles.messageActionsMine]}>
+            <Pressable accessibilityRole="button" onPress={onReply} style={({ pressed }) => [styles.messageAction, pressed && styles.pressed]}>
+              <Ionicons name="return-up-back-outline" size={15} color={NAVY} />
+              <Text style={styles.messageActionText}>Reply</Text>
+            </Pressable>
+            {mine && (
+              <Pressable accessibilityRole="button" onPress={onEdit} style={({ pressed }) => [styles.messageAction, pressed && styles.pressed]}>
+                <Ionicons name="create-outline" size={15} color={NAVY} />
+                <Text style={styles.messageActionText}>Edit</Text>
+              </Pressable>
+            )}
+            {mine && (
+              <Pressable accessibilityRole="button" onPress={onDelete} style={({ pressed }) => [styles.messageAction, styles.deleteAction, pressed && styles.pressed]}>
+                <Ionicons name="trash-outline" size={15} color={Colors.destructive} />
+                <Text style={[styles.messageActionText, styles.deleteActionText]}>Delete</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
         {!!message.reactions?.length && (
           <View style={[styles.reactionRow, mine && styles.reactionRowMine]}>
             {message.reactions.map(reaction => (
@@ -403,6 +514,41 @@ function EmptyInbox({ userRole }: { userRole?: string }) {
   );
 }
 
+function AttachmentPreview({
+  attachments,
+  onRemove,
+}: {
+  attachments: PendingAttachment[];
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.previewRail}
+      contentContainerStyle={styles.previewList}
+    >
+      {attachments.map((attachment, index) => {
+        const mediaType = attachment.mimeType ?? "";
+        return (
+          <View key={`${attachment.uri}-${index}`} style={styles.attachmentPreview}>
+            <View style={styles.previewIcon}>
+              <Ionicons name={mediaType.startsWith("image/") ? "image-outline" : "document-text-outline"} size={24} color={NAVY} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.previewName} numberOfLines={1}>{attachment.name}</Text>
+              <Text style={styles.previewMeta}>{fileKindLabel(mediaType, attachment.name)} · {formatFileSize(attachment.size)}</Text>
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => onRemove(index)} hitSlop={8} style={({ pressed }) => [styles.previewRemove, pressed && styles.pressed]}>
+              <Ionicons name="close" size={18} color={NAVY} />
+            </Pressable>
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore(state => state.user);
@@ -411,6 +557,9 @@ export default function MessagesScreen() {
   const [messages, setMessages] = useState<LearningItem[]>([]);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<LearningItem | null>(null);
+  const [editingMessage, setEditingMessage] = useState<LearningItem | null>(null);
+  const [actionMessageKey, setActionMessageKey] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [typingUser, setTypingUser] = useState<number | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -421,9 +570,12 @@ export default function MessagesScreen() {
   const socketRef = useRef<WebSocket | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDeliveredSent = useRef(0);
   const lastReadSent = useRef(0);
   const scrollRef = useRef<ScrollView | null>(null);
   const messagesRef = useRef<LearningItem[]>([]);
+  const failedSendPlans = useRef<Record<string, SendPlan>>({});
+  const pendingFailureTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const userRole = user?.role;
 
   const loadConversations = useCallback(async () => {
@@ -446,6 +598,10 @@ export default function MessagesScreen() {
     messagesRef.current = messages;
   }, [messages]);
 
+  useEffect(() => () => {
+    Object.values(pendingFailureTimers.current).forEach(clearTimeout);
+  }, []);
+
   const loadThread = useCallback(async (conversation: Conversation) => {
     setThreadLoading(true);
     try {
@@ -453,7 +609,9 @@ export default function MessagesScreen() {
       setMessages(rows);
       const last = rows.at(-1);
       if (last) {
+        lastDeliveredSent.current = last.id;
         lastReadSent.current = last.id;
+        await markConversationDelivered(conversation.booking_id, last.id).catch(() => undefined);
         await markConversationRead(conversation.booking_id, last.id).catch(() => undefined);
       }
       setConversations(current => current.map(item => (
@@ -488,6 +646,7 @@ export default function MessagesScreen() {
             const payload = JSON.parse(String(event.data));
             if ((payload.type === "message" || payload.type === "reaction") && payload.message) {
               const incoming = payload.message as LearningItem;
+              clearSendTracking(incoming.client_id);
               setMessages(current => mergeMessage(current, incoming));
               if (payload.type === "message") {
                 setConversations(current => applyConversationMessage(current, incoming, active.booking_id, user?.id));
@@ -506,6 +665,11 @@ export default function MessagesScreen() {
                   item.booking_id === active.booking_id ? { ...item, unread_count: 0, last_read_item_id: lastItemId } : item
                 )));
               }
+            }
+            if (payload.type === "delivered") {
+              const readerId = Number(payload.user_id);
+              const lastItemId = Number(payload.last_item_id);
+              setMessages(current => applyDeliveryReceipt(current, readerId, lastItemId, user?.id));
             }
           } catch {
             // Ignore malformed socket frames.
@@ -554,6 +718,7 @@ export default function MessagesScreen() {
         const rows = await getConversationMessages(activeBookingId, after);
         if (stopped || rows.length === 0) return;
         const latest = rows[rows.length - 1];
+        rows.forEach(row => clearSendTracking(row.client_id));
         setMessages(current => rows.reduce((next, row) => mergeMessage(next, row), current));
         setConversations(current => applyConversationMessage(current, latest, activeBookingId, user?.id));
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
@@ -583,6 +748,14 @@ export default function MessagesScreen() {
     if (!active) return;
     const last = messages.at(-1);
     if (!last) return;
+    if (last.id > lastDeliveredSent.current) {
+      lastDeliveredSent.current = last.id;
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: "delivered", last_item_id: last.id }));
+      } else {
+        void markConversationDelivered(active.booking_id, last.id).catch(() => undefined);
+      }
+    }
     if (last.id <= lastReadSent.current) return;
     lastReadSent.current = last.id;
     setConversations(current => current.map(item => (
@@ -618,14 +791,87 @@ export default function MessagesScreen() {
   async function openConversation(conversation: Conversation) {
     setActive(conversation);
     setReplyTo(null);
+    setEditingMessage(null);
+    setActionMessageKey(null);
+    setPendingAttachments([]);
+    lastDeliveredSent.current = 0;
     lastReadSent.current = 0;
     await loadThread(conversation);
   }
 
+  function clearSendTracking(clientId?: string | null) {
+    if (!clientId) return;
+    delete failedSendPlans.current[clientId];
+    const timer = pendingFailureTimers.current[clientId];
+    if (timer) clearTimeout(timer);
+    delete pendingFailureTimers.current[clientId];
+  }
+
+  function schedulePendingFailure(plan: SendPlan) {
+    clearSendTracking(plan.clientId);
+    failedSendPlans.current[plan.clientId] = plan;
+    pendingFailureTimers.current[plan.clientId] = setTimeout(() => {
+      setMessages(current => current.map(message => (
+        message.client_id === plan.clientId && message.pending
+          ? { ...message, pending: false, failed: true }
+          : message
+      )));
+      delete pendingFailureTimers.current[plan.clientId];
+    }, 20000);
+  }
+
+  function markPlanFailed(plan: SendPlan) {
+    clearSendTracking(plan.clientId);
+    failedSendPlans.current[plan.clientId] = plan;
+    setMessages(current => current.map(message => (
+      message.client_id === plan.clientId ? { ...message, pending: false, failed: true } : message
+    )));
+  }
+
+  async function deliverPlan(plan: SendPlan) {
+    const sentMessage = plan.attachment
+      ? await uploadMessageAttachment(plan.bookingId, plan.attachment, { body: plan.optimistic.body, client_id: plan.clientId, reply_to_item_id: plan.replyToId })
+      : await sendConversationMessage(plan.bookingId, { body: plan.optimistic.body, client_id: plan.clientId, reply_to_item_id: plan.replyToId });
+    const sent = confirmedMessage(sentMessage, plan.optimistic);
+    clearSendTracking(sent.client_id ?? plan.clientId);
+    setMessages(current => mergeMessage(current, sent));
+    setConversations(current => applyConversationMessage(current, sent, plan.bookingId, user?.id));
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }
+
   async function sendMessage() {
-    if (!active || !draft.trim()) return;
-    const body = draft.trim();
-    const clientId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const attachments = pendingAttachments;
+    if (editingMessage) {
+      if (!active || !draft.trim()) return;
+      const body = draft.trim();
+      const optimistic: LearningItem = {
+        ...editingMessage,
+        body,
+        extra: { ...(editingMessage.extra ?? {}), edited_at: new Date().toISOString() },
+      };
+      setDraft("");
+      setEditingMessage(null);
+      setActionMessageKey(null);
+      setMessages(current => mergeMessage(current, optimistic));
+      setConversations(current => applyConversationMessage(current, optimistic, active.booking_id, user?.id));
+      setSending(true);
+      setError("");
+      try {
+        const updated = await editConversationMessage(active.booking_id, editingMessage.id, body);
+        setMessages(current => mergeMessage(current, updated));
+        setConversations(current => applyConversationMessage(current, updated, active.booking_id, user?.id));
+      } catch (err) {
+        setError(extractErrorMessage(err, "Could not edit this message."));
+        setMessages(current => mergeMessage(current, editingMessage));
+        setDraft(body);
+        setEditingMessage(editingMessage);
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+    if (!active || (!draft.trim() && !attachments.length)) return;
+    const caption = draft.trim();
     const replyToId = replyTo && replyTo.id > 0 ? replyTo.id : undefined;
     const replyPreview = replyTo ? {
       id: replyTo.id,
@@ -634,46 +880,95 @@ export default function MessagesScreen() {
       body: replyTo.body,
       kind: replyTo.kind,
     } : null;
-    const optimistic: LearningItem = {
-      id: -Number(clientId.split("-")[0]),
-      booking_id: active.booking_id,
-      author_id: user?.id ?? 0,
-      author_name: authorName(user),
-      kind: "message",
-      title: "",
-      body,
-      url: null,
-      due_at: null,
-      client_id: clientId,
-      created_at: new Date().toISOString(),
-      submission: null,
-      read_by_recipient: false,
-      reply_to_item_id: replyToId,
-      reply_to: replyPreview,
-      reactions: [],
-      attachment: null,
-      extra: {},
-      pending: true,
-    };
+    const stamp = Date.now();
+    const plans: SendPlan[] = attachments.length
+      ? attachments.map((attachment, index) => {
+        const clientId = `${stamp}-${index}-${Math.random().toString(36).slice(2)}`;
+        const body = index === 0 && caption ? caption : `Shared ${attachment.name}`;
+        return {
+          clientId,
+          bookingId: active.booking_id,
+          attachment,
+          replyToId,
+          optimistic: {
+            id: -(stamp + index),
+            booking_id: active.booking_id,
+            author_id: user?.id ?? 0,
+            author_name: authorName(user),
+            kind: "message" as const,
+            title: attachment.name,
+            body,
+            url: null,
+            due_at: null,
+            client_id: clientId,
+            created_at: new Date(stamp + index).toISOString(),
+            submission: null,
+            read_by_recipient: false,
+            reply_to_item_id: replyToId,
+            reply_to: replyPreview,
+            reactions: [],
+            attachment: {
+              filename: attachment.name,
+              media_type: attachment.mimeType ?? "application/octet-stream",
+              size: attachment.size ?? 0,
+            },
+            extra: {},
+            pending: true,
+          },
+        };
+      })
+      : (() => {
+        const clientId = `${stamp}-0-${Math.random().toString(36).slice(2)}`;
+        return [{
+          clientId,
+          bookingId: active.booking_id,
+          attachment: null,
+          replyToId,
+          optimistic: {
+            id: -stamp,
+            booking_id: active.booking_id,
+            author_id: user?.id ?? 0,
+            author_name: authorName(user),
+            kind: "message" as const,
+            title: "",
+            body: caption,
+            url: null,
+            due_at: null,
+            client_id: clientId,
+            created_at: new Date(stamp).toISOString(),
+            submission: null,
+            read_by_recipient: false,
+            reply_to_item_id: replyToId,
+            reply_to: replyPreview,
+            reactions: [],
+            attachment: null,
+            extra: {},
+            pending: true,
+          },
+        }];
+      })();
     setDraft("");
     setReplyTo(null);
-    setMessages(current => mergeMessage(current, optimistic));
-    setConversations(current => applyConversationMessage(current, optimistic, active.booking_id, user?.id));
+    setActionMessageKey(null);
+    setPendingAttachments([]);
+    setMessages(current => plans.reduce((next, plan) => mergeMessage(next, plan.optimistic), current));
+    setConversations(current => plans.reduce((next, plan) => applyConversationMessage(next, plan.optimistic, active.booking_id, user?.id), current));
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     setSending(true);
     setError("");
     try {
-      const sent = confirmedMessage(
-        await sendConversationMessage(active.booking_id, { body, client_id: clientId, reply_to_item_id: replyToId }),
-        optimistic,
-      );
-      setMessages(current => mergeMessage(current, sent));
-      setConversations(current => applyConversationMessage(current, sent, active.booking_id, user?.id));
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-    } catch (err) {
-      if (shouldMarkSendFailed(err)) {
-        setMessages(current => current.map(message => message.client_id === clientId ? { ...message, pending: false, failed: true } : message));
-        setError(extractErrorMessage(err, "Could not send your message."));
+      for (const plan of plans) {
+        try {
+          failedSendPlans.current[plan.clientId] = plan;
+          await deliverPlan(plan);
+        } catch (err) {
+          if (shouldMarkSendFailed(err)) {
+            markPlanFailed(plan);
+            setError(extractErrorMessage(err, plan.attachment ? `Could not send ${plan.attachment.name}.` : "Could not send your message."));
+          } else {
+            schedulePendingFailure(plan);
+          }
+        }
       }
     } finally {
       setSending(false);
@@ -684,32 +979,137 @@ export default function MessagesScreen() {
     if (!active) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/png", "image/jpeg"],
+        type: [
+          "application/pdf",
+          "image/png",
+          "image/jpeg",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "text/plain",
+          "text/csv",
+        ],
         copyToCacheDirectory: true,
-        multiple: false,
+        multiple: true,
       });
       if (result.canceled) return;
-      const asset = result.assets[0];
-      if (asset.size && asset.size > 8 * 1024 * 1024) {
-        Alert.alert("File too large", "Choose a file no larger than 8 MB.");
+      const oversized = result.assets.find(asset => asset.size && asset.size > MAX_CHAT_FILE_BYTES);
+      if (oversized) {
+        Alert.alert("File too large", `Choose a file no larger than ${MAX_CHAT_FILE_SIZE_LABEL}.`);
         return;
       }
-      setSending(true);
-      const uploaded = await uploadMessageAttachment(active.booking_id, {
-        uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
-        file: asset.file,
-      }, replyTo?.id);
-      setMessages(current => mergeMessage(current, uploaded));
-      setConversations(current => applyConversationMessage(current, uploaded, active.booking_id, user?.id));
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-      setReplyTo(null);
+      setPendingAttachments(current => {
+        const availableSlots = MAX_CHAT_ATTACHMENTS - current.length;
+        if (availableSlots <= 0) {
+          Alert.alert("File limit reached", `You can send up to ${MAX_CHAT_ATTACHMENTS} files at once.`);
+          return current;
+        }
+        const accepted = result.assets.slice(0, availableSlots).map(asset => ({
+          uri: asset.uri,
+          name: asset.name,
+          mimeType: asset.mimeType,
+          size: asset.size,
+          file: asset.file,
+        }));
+        if (accepted.length < result.assets.length) {
+          Alert.alert("Some files were not added", `You can send up to ${MAX_CHAT_ATTACHMENTS} files at once.`);
+        }
+        return [...current, ...accepted];
+      });
     } catch (err) {
-      setError(extractErrorMessage(err, "Could not upload this document."));
+      setError(extractErrorMessage(err, "Could not attach this document."));
+    }
+  }
+
+  async function resendMessage(message: LearningItem) {
+    if (!active || !message.client_id) return;
+    const plan = failedSendPlans.current[message.client_id];
+    if (!plan) {
+      if (message.attachment) {
+        Alert.alert("Cannot resend file", "Please attach this file again, then resend it.");
+        return;
+      }
+      const retryPlan: SendPlan = {
+        clientId: message.client_id,
+        bookingId: message.booking_id,
+        attachment: null,
+        replyToId: message.reply_to_item_id ?? undefined,
+        optimistic: { ...message, failed: false, pending: true },
+      };
+      failedSendPlans.current[retryPlan.clientId] = retryPlan;
+      setMessages(current => mergeMessage(current, retryPlan.optimistic));
+      await deliverPlan(retryPlan).catch(err => {
+        shouldMarkSendFailed(err) ? markPlanFailed(retryPlan) : schedulePendingFailure(retryPlan);
+      });
+      return;
+    }
+    const optimistic = { ...plan.optimistic, failed: false, pending: true, created_at: new Date().toISOString() };
+    const retryPlan = { ...plan, optimistic };
+    failedSendPlans.current[retryPlan.clientId] = retryPlan;
+    setMessages(current => mergeMessage(current, optimistic));
+    setSending(true);
+    setError("");
+    try {
+      await deliverPlan(retryPlan);
+    } catch (err) {
+      if (shouldMarkSendFailed(err)) {
+        markPlanFailed(retryPlan);
+        setError(extractErrorMessage(err, retryPlan.attachment ? `Could not send ${retryPlan.attachment.name}.` : "Could not send your message."));
+      } else {
+        schedulePendingFailure(retryPlan);
+      }
     } finally {
       setSending(false);
     }
+  }
+
+  function startEditMessage(message: LearningItem) {
+    if (message.pending || message.failed || isDeletedMessage(message)) return;
+    setReplyTo(null);
+    setPendingAttachments([]);
+    setEditingMessage(message);
+    setActionMessageKey(null);
+    setDraft(message.body);
+  }
+
+  async function deleteMessage(message: LearningItem) {
+    if (!active) return;
+    if (message.id < 1) {
+      clearSendTracking(message.client_id);
+      setMessages(current => current.filter(item => item.client_id !== message.client_id));
+      setActionMessageKey(null);
+      return;
+    }
+    setActionMessageKey(null);
+    const optimistic: LearningItem = {
+      ...message,
+      title: "",
+      body: "This message was deleted",
+      extra: { ...(message.extra ?? {}), deleted_at: new Date().toISOString() },
+    };
+    setMessages(current => mergeMessage(current, optimistic));
+    setConversations(current => applyConversationMessage(current, optimistic, active.booking_id, user?.id));
+    try {
+      const deleted = await deleteConversationMessage(active.booking_id, message.id);
+      setMessages(current => mergeMessage(current, deleted));
+      setConversations(current => applyConversationMessage(current, deleted, active.booking_id, user?.id));
+    } catch (err) {
+      setMessages(current => mergeMessage(current, message));
+      setError(extractErrorMessage(err, "Could not delete this message."));
+    }
+  }
+
+  function openMessageActions(message: LearningItem) {
+    if (isDeletedMessage(message)) return;
+    if (message.pending) return;
+    const key = messageActionKey(message);
+    setActionMessageKey(current => current === key ? null : key);
+  }
+
+  function startReplyMessage(message: LearningItem) {
+    setReplyTo(message);
+    setEditingMessage(null);
+    setActionMessageKey(null);
   }
 
   async function toggleReaction(message: LearningItem, emoji: string) {
@@ -905,14 +1305,30 @@ export default function MessagesScreen() {
                   message={message}
                   mine={message.author_id === user?.id}
                   peerName={active.counterpart}
-                  onReply={() => setReplyTo(message)}
+                  onOpenActions={() => openMessageActions(message)}
+                  onResend={() => void resendMessage(message)}
+                  onReply={() => startReplyMessage(message)}
+                  onEdit={() => startEditMessage(message)}
+                  onDelete={() => void deleteMessage(message)}
                   onReact={emoji => void toggleReaction(message, emoji)}
+                  actionOpen={actionMessageKey === messageActionKey(message)}
                 />
               ))}
               {!!typingUser && <Text style={styles.typingText}>Typing…</Text>}
             </ScrollView>
 
             <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) + 10 }]}>
+              {editingMessage && (
+                <View style={styles.replyingBox}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.replyingLabel}>Editing message</Text>
+                    <Text style={styles.replyingText} numberOfLines={1}>{editingMessage.body}</Text>
+                  </View>
+                  <Pressable accessibilityRole="button" onPress={() => { setEditingMessage(null); setDraft(""); }} hitSlop={8}>
+                    <Ionicons name="close" size={20} color={NAVY} />
+                  </Pressable>
+                </View>
+              )}
               {replyTo && (
                 <View style={styles.replyingBox}>
                   <View style={{ flex: 1 }}>
@@ -924,15 +1340,21 @@ export default function MessagesScreen() {
                   </Pressable>
                 </View>
               )}
+              {!!pendingAttachments.length && (
+                <AttachmentPreview
+                  attachments={pendingAttachments}
+                  onRemove={index => setPendingAttachments(current => current.filter((_, itemIndex) => itemIndex !== index))}
+                />
+              )}
               <View style={styles.composer}>
-                <Pressable accessibilityRole="button" onPress={attachDocument} disabled={sending} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed, sending && styles.disabled]}>
+                <Pressable accessibilityRole="button" onPress={attachDocument} disabled={sending || !!editingMessage} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed, (sending || !!editingMessage) && styles.disabled]}>
                   <Ionicons name="add" size={28} color="#FFFFFF" />
                 </Pressable>
                 <View style={styles.inputWrap}>
                   <TextInput
                     value={draft}
                     onChangeText={handleDraftChange}
-                    placeholder={`Message ${active.counterpart.split(" ")[0] ?? ""}`}
+                    placeholder={editingMessage ? "Edit message" : `Message ${active.counterpart.split(" ")[0] ?? ""}`}
                     placeholderTextColor={MUTED_NAVY}
                     multiline
                     style={[styles.input, Platform.OS === "web" && ({ outlineStyle: "none" } as any)]}
@@ -941,8 +1363,8 @@ export default function MessagesScreen() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={sendMessage}
-                  disabled={sending || !draft.trim()}
-                  style={({ pressed }) => [styles.sendButton, pressed && styles.pressed, (sending || !draft.trim()) && styles.disabled]}
+                  disabled={sending || (!draft.trim() && !pendingAttachments.length)}
+                  style={({ pressed }) => [styles.sendButton, pressed && styles.pressed, (sending || (!draft.trim() && !pendingAttachments.length)) && styles.disabled]}
                 >
                   {sending ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="send" size={21} color="#FFFFFF" />}
                 </Pressable>
@@ -1092,10 +1514,20 @@ const styles = StyleSheet.create({
   attachmentBubble: { paddingHorizontal: 0, paddingVertical: 0, backgroundColor: "transparent" },
   messageText: { fontFamily: "sans-medium", fontSize: 16, lineHeight: 23, color: NAVY },
   messageTextMine: { color: "#FFFFFF" },
+  deletedMessageText: { fontFamily: "sans-semibold", fontStyle: "italic", opacity: 0.72 },
   bubbleMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 7 },
   bubbleMetaRowMine: { justifyContent: "flex-end" },
   bubbleTime: { fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
   failedText: { color: Colors.destructive },
+  failedActions: { flexDirection: "row", gap: 8, marginTop: 8 },
+  failedAction: { minHeight: 28, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, backgroundColor: "#EEF2F7" },
+  failedActionText: { fontFamily: "sans-semibold", fontSize: 12, color: NAVY },
+  messageActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  messageActionsMine: { justifyContent: "flex-end" },
+  messageAction: { minHeight: 30, borderRadius: 15, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, backgroundColor: "#EEF2F7" },
+  messageActionText: { fontFamily: "sans-semibold", fontSize: 12, color: NAVY },
+  deleteAction: { backgroundColor: "#FFECEA" },
+  deleteActionText: { color: Colors.destructive },
   replyPreview: { borderLeftWidth: 3, borderLeftColor: Colors.teal, paddingLeft: 9, marginBottom: 8 },
   replyPreviewMine: { borderLeftColor: LIME },
   replyAuthor: { fontFamily: "sans-bold", fontSize: 12, color: NAVY },
@@ -1142,12 +1574,19 @@ const styles = StyleSheet.create({
   replyingBox: { minHeight: 48, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, marginBottom: 8, backgroundColor: SOFT_MINT },
   replyingLabel: { fontFamily: "sans-bold", fontSize: 12, color: NAVY },
   replyingText: { marginTop: 2, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
+  previewRail: { maxHeight: 64, marginBottom: 8 },
+  previewList: { flexDirection: "row", gap: 8, paddingRight: 2 },
+  attachmentPreview: { width: 228, minHeight: 58, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, backgroundColor: "#F0F3F8", borderWidth: 1, borderColor: "#DADDE7" },
+  previewIcon: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: SOFT_MINT },
+  previewName: { fontFamily: "sans-bold", fontSize: 13, color: NAVY },
+  previewMeta: { marginTop: 2, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
+  previewRemove: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
   composer: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 6 },
   plusButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: NAVY },
   inputWrap: { flex: 1, minHeight: 44, maxHeight: 88, borderRadius: 22, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, backgroundColor: "#F3F5F8", borderWidth: 1, borderColor: "#DADDE7" },
   input: { flex: 1, maxHeight: 72, fontFamily: "sans-medium", fontSize: 14, color: NAVY, paddingVertical: 5 },
   sendButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: NAVY },
-  emptyCard: { minHeight: 180, borderRadius: 20, borderTopRightRadius: 2, borderBottomLeftRadius: 2, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E1DFDA" },
+  emptyCard: { minHeight: 180, borderRadius: 8, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#DADDE7" },
   emptyTitle: { marginTop: 12, fontFamily: "sans-bold", fontSize: 18, color: NAVY },
   emptyText: { marginTop: 8, textAlign: "center", fontFamily: "sans-medium", fontSize: 13, lineHeight: 19, color: MUTED_NAVY },
   emptyInbox: {
@@ -1167,7 +1606,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 58,
     height: 46,
-    borderRadius: 18,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: SOFT_MINT,
@@ -1194,7 +1633,7 @@ const styles = StyleSheet.create({
   findTutorButton: {
     width: "84%",
     minHeight: 58,
-    borderRadius: 18,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1231,7 +1670,7 @@ const styles = StyleSheet.create({
   },
   confidenceCard: {
     marginTop: 18,
-    borderRadius: 18,
+    borderRadius: 8,
     paddingHorizontal: 18,
     backgroundColor: "#F0F2F6",
   },
@@ -1251,7 +1690,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: DIVIDER,
   },
-  error: { width: "100%", maxWidth: 470, alignSelf: "center", marginTop: 10, borderRadius: 14, padding: 12, backgroundColor: "#FFECEA" },
+  error: { width: "100%", maxWidth: 470, alignSelf: "center", marginTop: 10, borderRadius: 8, padding: 12, backgroundColor: "#FFECEA" },
   errorText: { fontFamily: "sans-semibold", fontSize: 13, color: Colors.destructive },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },

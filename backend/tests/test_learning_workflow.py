@@ -189,11 +189,44 @@ async def test_message_persistence_and_retry(scenario):
     assert reply.status_code == 201, reply.text
     assert reply.json()["reply_to"]["id"] == message_id
     assert (await client.post(f"/api/v1/messages/bookings/{booking_id}", json={"body": "I can reply from chat", "client_id": "chat-retry-1", "reply_to_item_id": message_id})).json()["id"] == reply.json()["id"]
+    edited = await client.put(f"/api/v1/messages/bookings/{booking_id}/messages/{reply.json()['id']}", json={"body": "Edited reply"})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["body"] == "Edited reply"
+    assert edited.json()["extra"]["edited_at"]
+    current["user"] = users[0]
+    assert (await client.put(f"/api/v1/messages/bookings/{booking_id}/messages/{reply.json()['id']}", json={"body": "Nope"})).status_code == 403
+    current["user"] = users[1]
     chat_file = await client.post(f"/api/v1/messages/bookings/{booking_id}/attachments", files={"file": ("guide.pdf", b"%PDF-1.4\nChat handout\n%%EOF", "application/pdf")})
     assert chat_file.status_code == 201, chat_file.text
     assert chat_file.json()["attachment"]["media_type"] == "application/pdf"
     assert chat_file.json()["body"] == "Shared guide.pdf"
-    assert not (await client.get(base)).json()[0]["read_by_recipient"]
+    docx = b"PK\x03\x04Fake office document bytes"
+    captioned = await client.post(
+        f"/api/v1/messages/bookings/{booking_id}/attachments",
+        data={"body": "Please review this worksheet", "client_id": "chat-file-1", "reply_to_item_id": message_id},
+        files={"file": ("worksheet.docx", docx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+    )
+    assert captioned.status_code == 201, captioned.text
+    assert captioned.json()["body"] == "Please review this worksheet"
+    assert captioned.json()["reply_to"]["id"] == message_id
+    assert captioned.json()["attachment"]["media_type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    retried = await client.post(
+        f"/api/v1/messages/bookings/{booking_id}/attachments",
+        data={"body": "Please review this worksheet", "client_id": "chat-file-1", "reply_to_item_id": message_id},
+        files={"file": ("worksheet.docx", docx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+    )
+    assert retried.json()["id"] == captioned.json()["id"]
+    deleted = await client.delete(f"/api/v1/messages/bookings/{booking_id}/messages/{captioned.json()['id']}")
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["body"] == "This message was deleted"
+    assert deleted.json()["extra"]["deleted_at"]
+    assert (await client.put(f"/api/v1/messages/bookings/{booking_id}/messages/{captioned.json()['id']}", json={"body": "No edits"})).status_code == 409
+    assert (await client.put(f"/api/v1/messages/bookings/{booking_id}/delivered", json={"last_item_id": message_id})).status_code == 200
+    current["user"] = users[0]
+    delivered_items = await client.get(base)
+    assert delivered_items.json()[0]["delivered_by_recipient"]
+    assert not delivered_items.json()[0]["read_by_recipient"]
+    current["user"] = users[1]
     assert (await client.put(f"{base}/read", json={"last_item_id": message_id})).status_code == 200
     current["user"] = users[0]
     assert (await client.get(base)).json()[0]["read_by_recipient"]

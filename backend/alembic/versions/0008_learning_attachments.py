@@ -15,6 +15,8 @@ def upgrade():
         sa.Column("filename", sa.String(160), nullable=False),
         sa.Column("media_type", sa.String(80), nullable=False),
         sa.Column("size", sa.Integer(), nullable=False),
+        sa.Column("storage_driver", sa.String(20), nullable=False, server_default="database"),
+        sa.Column("storage_key", sa.String(500), nullable=True),
         sa.Column("content", sa.LargeBinary(), nullable=False))
 
 
