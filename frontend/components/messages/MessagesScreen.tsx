@@ -627,6 +627,13 @@ export default function MessagesScreen() {
     const body = draft.trim();
     const clientId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const replyToId = replyTo && replyTo.id > 0 ? replyTo.id : undefined;
+    const replyPreview = replyTo ? {
+      id: replyTo.id,
+      author_id: replyTo.author_id,
+      author_name: replyTo.author_name,
+      body: replyTo.body,
+      kind: replyTo.kind,
+    } : null;
     const optimistic: LearningItem = {
       id: -Number(clientId.split("-")[0]),
       booking_id: active.booking_id,
@@ -642,19 +649,14 @@ export default function MessagesScreen() {
       submission: null,
       read_by_recipient: false,
       reply_to_item_id: replyToId,
-      reply_to: replyTo ? {
-        id: replyTo.id,
-        author_id: replyTo.author_id,
-        author_name: replyTo.author_name,
-        body: replyTo.body,
-        kind: replyTo.kind,
-      } : null,
+      reply_to: replyPreview,
       reactions: [],
       attachment: null,
       extra: {},
       pending: true,
     };
     setDraft("");
+    setReplyTo(null);
     setMessages(current => mergeMessage(current, optimistic));
     setConversations(current => applyConversationMessage(current, optimistic, active.booking_id, user?.id));
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
@@ -668,7 +670,6 @@ export default function MessagesScreen() {
       setMessages(current => mergeMessage(current, sent));
       setConversations(current => applyConversationMessage(current, sent, active.booking_id, user?.id));
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-      setReplyTo(null);
     } catch (err) {
       if (shouldMarkSendFailed(err)) {
         setMessages(current => current.map(message => message.client_id === clientId ? { ...message, pending: false, failed: true } : message));
