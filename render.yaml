@@ -2,7 +2,7 @@ services:
   - type: web
     name: didaskey-api
     runtime: docker
-    plan: 0.5c-512mb
+    plan: free
     region: oregon
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
@@ -74,5 +74,5 @@ databases:
     databaseName: didaskey
     user: didaskey
     region: oregon
-    plan: 0.1c-256mb
+    plan: free
     postgresMajorVersion: "17"
