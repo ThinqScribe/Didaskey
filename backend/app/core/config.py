@@ -72,6 +72,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_settings(self):
+        if self.DATABASE_URL.startswith("postgres://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif self.DATABASE_URL.startswith("postgresql://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
         if self.ENVIRONMENT == "production":
             if self.DEBUG or len(self.SECRET_KEY) < 32:
                 raise ValueError("Production requires DEBUG=false and a SECRET_KEY of at least 32 characters")

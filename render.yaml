@@ -1,0 +1,78 @@
+services:
+  - type: web
+    name: didaskey-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: oregon
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+    healthCheckPath: /ready
+    autoDeploy: true
+    envVars:
+      - key: APP_NAME
+        value: Didaskey API
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: didaskey-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: ALGORITHM
+        value: HS256
+      - key: FRONTEND_URL
+        value: https://didaskey.com
+      - key: CORS_ORIGINS
+        value: https://didaskey.com,https://www.didaskey.com
+      - key: SKIP_TUTOR_AVAILABILITY_CHECK
+        value: "false"
+      - key: CLASSROOM_JOIN_BEFORE_MINUTES
+        value: "10"
+      - key: CLASSROOM_JOIN_GRACE_MINUTES
+        value: "30"
+      - key: CLASSROOM_TOKEN_TTL_MINUTES
+        value: "180"
+      - key: FILE_STORAGE_DRIVER
+        value: r2
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_REGION
+        value: auto
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: IMAGEBB_API_KEY
+        sync: false
+
+databases:
+  - name: didaskey-db
+    databaseName: didaskey
+    user: didaskey
+    region: oregon
+    plan: 0.1c-256mb
+    postgresMajorVersion: "17"
