@@ -39,3 +39,15 @@ async def send_password_reset_email(to_email: str, token: str) -> None:
         "Reset your Didaskey password",
         f'<p><a href="{link}">Reset your Didaskey password</a>.</p>',
     )
+
+
+async def send_lesson_reminder_email(to_email: str, first_name: str, subject: str, time_label: str) -> None:
+    await _send_email(
+        to_email,
+        "Your Didaskey lesson starts soon",
+        (
+            f"<p>Hi {first_name},</p>"
+            f"<p>Your {subject} lesson starts at <strong>{time_label}</strong>.</p>"
+            "<p>Open Didaskey a few minutes early to test your audio, video, and shared materials.</p>"
+        ),
+    )

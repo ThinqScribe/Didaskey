@@ -32,6 +32,11 @@ def notify(db: AsyncSession, user_id: int, title: str, body: str, booking_id: in
     db.add(Notification(user_id=user_id, title=title, body=body[:500], booking_id=booking_id))
 
 
+async def notify_user(db: AsyncSession, user_id: int, title: str, body: str, booking_id: int):
+    from app.services.notification_service import create_notification
+    await create_notification(db, user_id, title, body, booking_id, push=True)
+
+
 def serialize(item):
     values = {column.name: getattr(item, column.name) for column in item.__table__.columns}
     for key, value in values.items():
@@ -119,7 +124,7 @@ async def create_item(db: AsyncSession, user: User, booking_id: int, payload: It
     item = LearningItem(booking_id=booking_id, author_id=user.id, **payload.model_dump(exclude={"url"}), url=str(payload.url) if payload.url else None)
     db.add(item)
     recipient = booking.tutor.user_id if user.id == booking.student_id else booking.student_id
-    notify(db, recipient, f"New {payload.kind} from {user.first_name}", payload.title or payload.body, booking_id)
+    await notify_user(db, recipient, f"New {payload.kind} from {user.first_name}", payload.title or payload.body, booking_id)
     await db.commit()
     await db.refresh(item)
     return serialize(item)

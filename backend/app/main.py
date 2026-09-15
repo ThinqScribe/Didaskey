@@ -17,6 +17,7 @@ from app.models import (  # noqa: F401  — side-effect imports
     Booking,
     Classroom,
     ClassroomParticipant,
+    PushDevice,
     Refund,
     Review,
     Subject,

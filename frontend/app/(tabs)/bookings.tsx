@@ -28,6 +28,8 @@ import {
   type BookingResponse,
   type BookingStatus,
 } from "@/lib/api/bookings";
+import { syncBookingsToCalendar } from "@/lib/device/calendar";
+import { scheduleLessonReminderNotification } from "@/lib/device/notifications";
 
 const NAVY = "#071D3A";
 const LIME = "#BFFF4B";
@@ -126,7 +128,7 @@ function canCancel(booking: BookingResponse) {
   return booking.status === "confirmed" || booking.status === "pending_payment";
 }
 
-function Header({ count }: { count: number }) {
+function Header({ count, onCalendar }: { count: number; onCalendar: () => void }) {
   return (
     <View style={styles.header}>
       <View style={styles.headerCopy}>
@@ -140,7 +142,7 @@ function Header({ count }: { count: number }) {
       </View>
       <View style={styles.headerMeta}>
         <Text style={styles.sessionCount}>{count} session{count === 1 ? "" : "s"}</Text>
-        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.calendarLink, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" onPress={onCalendar} style={({ pressed }) => [styles.calendarLink, pressed && styles.pressed]}>
           <Text style={styles.calendarLinkText}>View calendar</Text>
           <Ionicons name="chevron-forward" size={23} color={NAVY} />
         </Pressable>
@@ -336,7 +338,7 @@ function LaterBooking({
   );
 }
 
-function CalendarBanner() {
+function CalendarBanner({ onSync, busy }: { onSync: () => void; busy: boolean }) {
   return (
     <View style={styles.calendarBanner}>
       <View style={styles.bannerIcon}>
@@ -346,9 +348,13 @@ function CalendarBanner() {
         <Text style={styles.bannerTitle}>Never miss a lesson</Text>
         <Text style={styles.bannerText}>Add your sessions to your device calendar</Text>
       </View>
-      <Pressable accessibilityRole="button" style={({ pressed }) => [styles.bannerAction, pressed && styles.pressed]}>
-        <Text style={styles.bannerActionText}>Sync calendar</Text>
-        <Ionicons name="chevron-forward" size={23} color={NAVY} />
+      <Pressable accessibilityRole="button" onPress={onSync} disabled={busy} style={({ pressed }) => [styles.bannerAction, pressed && styles.pressed, busy && styles.disabled]}>
+        {busy ? <ActivityIndicator color={NAVY} /> : (
+          <>
+            <Text style={styles.bannerActionText}>Sync calendar</Text>
+            <Ionicons name="chevron-forward" size={23} color={NAVY} />
+          </>
+        )}
       </Pressable>
     </View>
   );
@@ -395,6 +401,7 @@ export default function BookingsScreen() {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [webViewVisible, setWebViewVisible] = useState(false);
   const [monthScope, setMonthScope] = useState<"this_month" | "all">("this_month");
+  const [syncingCalendar, setSyncingCalendar] = useState(false);
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
@@ -524,9 +531,28 @@ export default function BookingsScreen() {
     setPaying(null);
   }, []);
 
+  const handleCalendarSync = useCallback(async () => {
+    const source = bookings.length ? bookings : visibleBookings;
+    setSyncingCalendar(true);
+    try {
+      const synced = await syncBookingsToCalendar(source);
+      await Promise.all(source.filter(booking => booking.status === "confirmed").map(booking => scheduleLessonReminderNotification({
+        bookingId: booking.id,
+        title: "Lesson reminder",
+        body: `${booking.subject_name ?? "Your lesson"} with ${booking.tutor_name} starts soon.`,
+        scheduledAt: booking.scheduled_at,
+      })));
+      Alert.alert("Calendar synced", synced ? `${synced} upcoming lesson${synced === 1 ? "" : "s"} added.` : "There are no upcoming confirmed lessons to add.");
+    } catch (err) {
+      Alert.alert("Calendar unavailable", err instanceof Error ? err.message : "Could not sync your lessons to calendar.");
+    } finally {
+      setSyncingCalendar(false);
+    }
+  }, [bookings, visibleBookings]);
+
   const listHeader = (
     <ScreenFade>
-      <Header count={visibleBookings.length} />
+      <Header count={visibleBookings.length} onCalendar={handleCalendarSync} />
       <Rise delay={60}>
         <StatusTabs activeTab={activeTab} setActiveTab={setActiveTab} />
       </Rise>
@@ -592,7 +618,7 @@ export default function BookingsScreen() {
               scopedOut={bookings.length > 0 && visibleBookings.length === 0}
             />
           ) : null}
-          ListFooterComponent={nextBooking ? <CalendarBanner /> : null}
+          ListFooterComponent={nextBooking ? <CalendarBanner onSync={handleCalendarSync} busy={syncingCalendar} /> : null}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.teal} colors={[Colors.teal]} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.content, { paddingBottom: TabBar.height + insets.bottom + 34 }]}

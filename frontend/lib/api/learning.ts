@@ -112,3 +112,7 @@ export async function createWhiteboardSocket(bookingId: number): Promise<WebSock
 }
 export async function getProgress(): Promise<Progress> { return (await apiClient.get("/progress")).data; }
 export async function getNotices(page = 1): Promise<Notice[]> { return (await apiClient.get("/notifications", { params: { page } })).data; }
+
+export async function registerPushToken(payload: { token: string; platform: string; device_id?: string | null }): Promise<void> {
+  await apiClient.post("/notifications/push-token", payload);
+}

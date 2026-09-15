@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 22.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://doe-maps-intermediate-invalid.trycloudflare.com",
+        "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_test_c40b7c5e7e79e7a9fa0f4e5ef56ef0ce8c7d7f4a"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://doe-maps-intermediate-invalid.trycloudflare.com",
+        "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_test_c40b7c5e7e79e7a9fa0f4e5ef56ef0ce8c7d7f4a"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

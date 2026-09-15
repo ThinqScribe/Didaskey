@@ -6,12 +6,9 @@
  * asynchronously. We show the details optimistically from the params
  * passed by the confirm screen rather than polling the backend.
  *
- * Actions:
- *  - "Go to My Sessions" → bookings tab
- *  - "Add to Calendar"   → placeholder (calendar integration future scope)
  */
 
-import { Pressable, ScrollView, Share, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +21,8 @@ import {
   sessionFormatLabel,
   type SessionFormat,
 } from "@/lib/api/bookings";
+import { addBookingToCalendar } from "@/lib/device/calendar";
+import { scheduleLessonReminderNotification } from "@/lib/device/notifications";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -68,6 +67,30 @@ export default function SuccessScreen() {
   const bookingRef = params.bookingId
     ? `DID${params.bookingId.padStart(8, "0")}`
     : params.reference?.slice(0, 12).toUpperCase() ?? "—";
+  const bookingId = Number(params.bookingId ?? 0);
+
+  async function addCalendarEvent() {
+    if (!bookingId || !params.scheduledAt) return;
+    try {
+      await addBookingToCalendar({
+        id: bookingId,
+        subject_name: params.subjectName || "Tutoring",
+        tutor_name: params.displayName,
+        scheduled_at: params.scheduledAt,
+        duration_minutes: duration,
+        session_format: sessionFormat,
+      });
+      await scheduleLessonReminderNotification({
+        bookingId,
+        title: "Lesson reminder",
+        body: `${params.subjectName || "Your lesson"} with ${params.displayName} starts soon.`,
+        scheduledAt: params.scheduledAt,
+      });
+      Alert.alert("Added to calendar", "Your lesson and reminders have been added.");
+    } catch (err) {
+      Alert.alert("Calendar unavailable", err instanceof Error ? err.message : "Could not add this lesson to your calendar.");
+    }
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
@@ -155,17 +178,26 @@ export default function SuccessScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => {
-              void Share.share({ message: `Didaskey lesson: ${params.subjectName || "Tutoring"} with ${params.displayName}. ${dateLabel}, ${timeLabel}. Booking ${bookingRef}.` }).catch(() => undefined);
-            }}
+            onPress={addCalendarEvent}
             className="rounded-lg border border-border bg-white items-center py-3.5 active:opacity-80"
           >
             <View className="flex-row items-center gap-2">
               <Ionicons name="calendar-outline" size={16} color={Colors.deepTeal} />
               <Text className="text-[15px] font-sans-semibold text-charcoal">
-                Share session details
+                Add to calendar
               </Text>
             </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              void Share.share({ message: `Didaskey lesson: ${params.subjectName || "Tutoring"} with ${params.displayName}. ${dateLabel}, ${timeLabel}. Booking ${bookingRef}.` }).catch(() => undefined);
+            }}
+            className="rounded-lg border border-border bg-white items-center py-3.5 active:opacity-80"
+          >
+            <Text className="text-[15px] font-sans-semibold text-charcoal">
+              Share session details
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

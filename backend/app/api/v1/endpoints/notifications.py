@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user
@@ -7,8 +8,15 @@ from app.db.session import get_db_session
 from app.models import User
 from app.models.learning import Notification
 from app.services.learning_service import serialize
+from app.services.notification_service import register_push_token, send_due_lesson_reminders
 
 router = APIRouter()
+
+
+class PushTokenRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=255)
+    platform: str = Field(default="unknown", max_length=20)
+    device_id: str | None = Field(default=None, max_length=120)
 
 
 @router.get("")
@@ -32,3 +40,25 @@ async def read_one(notification_id: int, db: AsyncSession = Depends(get_db_sessi
     row.read_at = row.read_at or datetime.now(timezone.utc)
     await db.commit()
     return serialize(row)
+
+
+@router.post("/push-token")
+async def save_push_token(
+    payload: PushTokenRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+):
+    await register_push_token(db, user, payload.token, payload.platform, payload.device_id)
+    return {"ok": True}
+
+
+@router.post("/reminders/due")
+async def send_due_reminders(
+    minutes_before: int = Query(30, ge=1, le=1440),
+    window_minutes: int = Query(5, ge=1, le=60),
+    db: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(403, "Only administrators can send reminder batches")
+    return {"sent": await send_due_lesson_reminders(db, minutes_before, window_minutes)}

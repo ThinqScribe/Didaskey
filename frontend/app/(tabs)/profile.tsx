@@ -3,11 +3,14 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,7 +22,7 @@ import { Colors, TabBar } from "@/constants";
 import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 import { useAuthStore } from "@/lib/store/auth";
 import { useRefresh } from "@/lib/hooks/useRefresh";
-import { uploadAvatar } from "@/lib/api/auth";
+import { updateMe, uploadAvatar, type EducationLevel } from "@/lib/api/auth";
 import {
   formatBookingTimeRange,
   listBookings,
@@ -40,6 +43,15 @@ const EDUCATION_LABELS: Record<string, string> = {
   undergraduate: "Undergraduate",
   postgraduate: "Postgraduate",
 };
+
+const EDUCATION_OPTIONS: { value: EducationLevel; label: string }[] = [
+  { value: "primary_school", label: "Primary School" },
+  { value: "junior_secondary", label: "Junior Secondary" },
+  { value: "senior_secondary", label: "Senior Secondary" },
+  { value: "high_school", label: "High School" },
+  { value: "undergraduate", label: "Undergraduate" },
+  { value: "postgraduate", label: "Postgraduate" },
+];
 
 function fullEducationLabel(educationLevel?: string | null) {
   if (!educationLevel) return "Senior Secondary";
@@ -183,6 +195,12 @@ export default function StudentProfile() {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEducation, setEditEducation] = useState<EducationLevel>("senior_secondary");
 
   const load = useCallback(async () => {
     try {
@@ -255,7 +273,40 @@ export default function StudentProfile() {
   }
 
   function showEditProfile() {
-    Alert.alert("Edit profile", "Profile editing will be available here soon.");
+    setEditFirstName(user?.first_name ?? "");
+    setEditLastName(user?.last_name ?? "");
+    setEditPhone(user?.phone_number ?? "");
+    setEditEducation((user?.education_level as EducationLevel | null) ?? "senior_secondary");
+    setEditOpen(true);
+  }
+
+  async function saveProfile() {
+    const first = editFirstName.trim();
+    const last = editLastName.trim();
+    const phone = editPhone.trim();
+    if (!first || !last) {
+      Alert.alert("Name required", "Enter your first and last name.");
+      return;
+    }
+    if (phone && (!phone.startsWith("+") || !/^\+\d{8,15}$/.test(phone))) {
+      Alert.alert("Phone number", "Use international format, for example +2348012345678.");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const updated = await updateMe({
+        first_name: first,
+        last_name: last,
+        phone_number: phone || null,
+        education_level: editEducation,
+      });
+      setUser(updated);
+      setEditOpen(false);
+    } catch (err) {
+      Alert.alert("Could not save profile", err instanceof Error ? err.message : "Please try again in a moment.");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function showSettings() {
@@ -423,6 +474,51 @@ export default function StudentProfile() {
         </View>
         </Rise>
       </ScrollView>
+      <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.editorSheet}>
+            <View style={styles.editorHeader}>
+              <View>
+                <Text style={styles.editorTitle}>Edit profile</Text>
+                <Text style={styles.editorSubtitle}>Keep your learning profile accurate.</Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setEditOpen(false)} style={styles.editorClose}>
+                <Ionicons name="close" size={20} color={NAVY} />
+              </Pressable>
+            </View>
+            <View style={styles.editorGrid}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>First name</Text>
+                <TextInput value={editFirstName} onChangeText={setEditFirstName} style={[styles.editorInput, Platform.OS === "web" && ({ outlineStyle: "none" } as any)]} />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Last name</Text>
+                <TextInput value={editLastName} onChangeText={setEditLastName} style={[styles.editorInput, Platform.OS === "web" && ({ outlineStyle: "none" } as any)]} />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Phone</Text>
+                <TextInput value={editPhone} onChangeText={setEditPhone} keyboardType="phone-pad" placeholder="+2348012345678" placeholderTextColor={MUTED_NAVY} style={[styles.editorInput, Platform.OS === "web" && ({ outlineStyle: "none" } as any)]} />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Education level</Text>
+                <View style={styles.educationWrap}>
+                  {EDUCATION_OPTIONS.map(option => {
+                    const active = editEducation === option.value;
+                    return (
+                      <Pressable key={option.value} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => setEditEducation(option.value)} style={[styles.educationPill, active && styles.educationPillActive]}>
+                        <Text style={[styles.educationPillText, active && styles.educationPillTextActive]}>{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+            <Pressable accessibilityRole="button" onPress={saveProfile} disabled={savingProfile} style={({ pressed }) => [styles.saveButton, pressed && styles.pressed, savingProfile && styles.disabled]}>
+              {savingProfile ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Save changes</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -786,5 +882,105 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(7,29,58,0.38)",
+  },
+  editorSheet: {
+    width: "100%",
+    maxWidth: 470,
+    alignSelf: "center",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
+    paddingBottom: 24,
+    gap: 16,
+    backgroundColor: Colors.card,
+  },
+  editorHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  editorTitle: {
+    fontFamily: "sans-bold",
+    fontSize: 22,
+    color: NAVY,
+  },
+  editorSubtitle: {
+    marginTop: 4,
+    fontFamily: "sans-medium",
+    fontSize: 13,
+    color: MUTED_NAVY,
+  },
+  editorClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F0F3F8",
+  },
+  editorGrid: {
+    gap: 12,
+  },
+  inputGroup: {
+    gap: 7,
+  },
+  inputLabel: {
+    fontFamily: "sans-bold",
+    fontSize: 12,
+    color: MUTED_NAVY,
+  },
+  editorInput: {
+    minHeight: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 15,
+    fontFamily: "sans-semibold",
+    fontSize: 14,
+    color: NAVY,
+    backgroundColor: "#F6F8FB",
+  },
+  educationWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  educationPill: {
+    minHeight: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "#F0F3F8",
+  },
+  educationPillActive: {
+    backgroundColor: NAVY,
+  },
+  educationPillText: {
+    fontFamily: "sans-semibold",
+    fontSize: 12,
+    color: MUTED_NAVY,
+  },
+  educationPillTextActive: {
+    color: "#FFFFFF",
+  },
+  saveButton: {
+    minHeight: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: NAVY,
+  },
+  saveButtonText: {
+    fontFamily: "sans-bold",
+    fontSize: 14,
+    color: "#FFFFFF",
   },
 });

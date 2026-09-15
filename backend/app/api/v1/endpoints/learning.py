@@ -9,8 +9,8 @@ from app.db.session import get_db_session
 from app.models import User, Booking
 from app.models.learning import LearningItem, Submission, MessageReceipt, LearningAttachment
 from app.schemas.learning import FeedbackCreate, ItemCreate, SubmissionCreate
-from app.services.file_storage import MAX_FILE_BYTES, MAX_FILE_SIZE_LABEL, build_attachment_key, load_attachment, store_attachment
-from app.services.learning_service import create_item, list_items, notify, require_booking, serialize
+from app.services.file_storage import MAX_FILE_BYTES, MAX_FILE_SIZE_LABEL, build_attachment_key, clean_filename, detect_attachment_type, load_attachment, store_attachment
+from app.services.learning_service import create_item, list_items, notify_user, require_booking, serialize
 
 router = APIRouter()
 
@@ -25,10 +25,10 @@ async def upload_material(booking_id: int, file: UploadFile = File(...), db: Asy
     content = await file.read(MAX_FILE_BYTES + 1)
     if not content or len(content) > MAX_FILE_BYTES:
         raise HTTPException(413, f"Choose a non-empty file up to {MAX_FILE_SIZE_LABEL}")
-    formats = [(b"%PDF-", "application/pdf", "pdf"), (b"\x89PNG\r\n\x1a\n", "image/png", "png"), (b"\xff\xd8\xff", "image/jpeg", "jpg")]
-    match = next((f for f in formats if content.startswith(f[0])), None)
+    title = clean_filename(file.filename, "Lesson material")
+    match = detect_attachment_type(content, title)
     if match is None:
-        raise HTTPException(415, "Only PDF, PNG and JPEG files are supported")
+        raise HTTPException(415, "Only PDF, image, Office, text, Markdown, JSON and CSV files are supported")
     # The same tutor retrying an identical upload gets the existing resource.
     identity = f"file-{booking_id}-{hashlib.sha256(content).hexdigest()}"
     existing = await db.scalar(select(LearningItem).where(LearningItem.author_id == user.id, LearningItem.client_id == identity))
@@ -38,23 +38,22 @@ async def upload_material(booking_id: int, file: UploadFile = File(...), db: Asy
     if count >= 25:
         raise HTTPException(409, "This session has reached its 25-file limit")
     # Never use a user-supplied filename as a filesystem path or response header.
-    title = (file.filename or "Lesson material").replace("\\", "/").split("/")[-1][:160]
     item = LearningItem(booking_id=booking_id, author_id=user.id, kind="resource", title=title, body="Shared lesson file. Only open files you trust.", client_id=identity)
     db.add(item)
     await db.flush()
-    filename = f"didaskey-material-{item.id}.{match[2]}"
+    filename = f"didaskey-material-{item.id}.{match[1]}"
     storage_key = build_attachment_key(booking_id=booking_id, item_id=item.id, filename=filename)
-    storage_driver, stored_content = await store_attachment(key=storage_key, content=content, media_type=match[1])
+    storage_driver, stored_content = await store_attachment(key=storage_key, content=content, media_type=match[0])
     db.add(LearningAttachment(
         item_id=item.id,
         filename=filename,
-        media_type=match[1],
+        media_type=match[0],
         size=len(content),
         storage_driver=storage_driver,
         storage_key=storage_key if storage_driver == "r2" else None,
         content=stored_content,
     ))
-    notify(db, booking.student_id, "New lesson material", title, booking_id)
+    await notify_user(db, booking.student_id, "New lesson material", title, booking_id)
     await db.commit()
     return {"item_id": item.id}
 
@@ -127,7 +126,7 @@ async def submit(assignment_id: int, payload: SubmissionCreate, db: AsyncSession
     else:
         submission.body = payload.body
         submission.submitted_at = datetime.now(timezone.utc)
-    notify(db, booking.tutor.user_id, "Assignment submitted", assignment.title, booking.id)
+    await notify_user(db, booking.tutor.user_id, "Assignment submitted", assignment.title, booking.id)
     await db.commit()
     await db.refresh(submission)
     return serialize(submission)
@@ -146,7 +145,7 @@ async def feedback(assignment_id: int, payload: FeedbackCreate, db: AsyncSession
         raise HTTPException(409, "The student has not submitted work yet")
     submission.feedback, submission.score = payload.feedback, payload.score
     submission.reviewed_at = datetime.now(timezone.utc)
-    notify(db, booking.student_id, "Your feedback is ready", assignment.title, booking.id)
+    await notify_user(db, booking.student_id, "Your feedback is ready", assignment.title, booking.id)
     await db.commit()
     await db.refresh(submission)
     return serialize(submission)

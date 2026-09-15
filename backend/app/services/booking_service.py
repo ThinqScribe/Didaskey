@@ -498,10 +498,10 @@ async def reschedule_booking(booking_id: int, scheduled_at: datetime, user: User
     if old == target:
         return _build_response(booking)
     booking.scheduled_at = target
-    from app.services.learning_service import notify
     body = f"Session moved from {old.isoformat()} to {target.isoformat()}. Duration and payment are unchanged."
-    notify(db, booking.student_id, "Session rescheduled", body, booking.id)
-    notify(db, booking.tutor.user_id, "Session rescheduled", body, booking.id)
+    from app.services.learning_service import notify_user
+    await notify_user(db, booking.student_id, "Session rescheduled", body, booking.id)
+    await notify_user(db, booking.tutor.user_id, "Session rescheduled", body, booking.id)
     await db.flush()
     await db.refresh(booking)
     return _build_response(booking)
@@ -555,7 +555,7 @@ async def cancel_booking(
         return _build_response(booking)
     booking.status = BookingStatus.CANCELLED
     booking.cancellation_reason = payload.reason
-    _notify_booking_change(db, booking, "Session cancelled", "This booking was cancelled. Any refund is handled separately.")
+    await _notify_booking_change(db, booking, "Session cancelled", "This booking was cancelled. Any refund is handled separately.")
     await db.flush()
 
     logger.info(
@@ -591,7 +591,7 @@ async def confirm_booking(booking_id: int, db: AsyncSession) -> Booking:
         )
 
     booking.status = BookingStatus.CONFIRMED
-    _notify_booking_change(db, booking, "Booking confirmed", "Payment is confirmed. Your learning workspace is ready.")
+    await _notify_booking_change(db, booking, "Booking confirmed", "Payment is confirmed. Your learning workspace is ready.")
     await db.flush()
 
     logger.info("Booking confirmed: booking_id=%s", booking.id)
@@ -614,7 +614,7 @@ async def mark_completed(
         )
 
     booking.status = BookingStatus.COMPLETED
-    _notify_booking_change(db, booking, "Session completed", "Your lesson materials and feedback remain available in Learning.")
+    await _notify_booking_change(db, booking, "Session completed", "Your lesson materials and feedback remain available in Learning.")
     await db.flush()
     logger.info("Booking completed: booking_id=%s", booking.id)
     return _build_response(booking)
@@ -644,10 +644,10 @@ async def mark_no_show(
 # ── Internal ──────────────────────────────────────────────────────────────────
 
 
-def _notify_booking_change(db: AsyncSession, booking: Booking, title: str, body: str):
-    from app.services.learning_service import notify
-    notify(db, booking.student_id, title, body, booking.id)
-    notify(db, booking.tutor.user_id, title, body, booking.id)
+async def _notify_booking_change(db: AsyncSession, booking: Booking, title: str, body: str):
+    from app.services.learning_service import notify_user
+    await notify_user(db, booking.student_id, title, body, booking.id)
+    await notify_user(db, booking.tutor.user_id, title, body, booking.id)
 
 
 async def _load_booking(booking_id: int, db: AsyncSession) -> Booking:

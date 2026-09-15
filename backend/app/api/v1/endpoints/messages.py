@@ -15,25 +15,11 @@ from app.db.session import async_session_factory, get_db_session
 from app.models import Booking, User
 from app.models.learning import LearningAttachment, LearningItem, MessageReceipt, MessageDeliveryReceipt
 from app.schemas.learning import ItemCreate
-from app.services.file_storage import MAX_FILE_BYTES, MAX_FILE_SIZE_LABEL, build_attachment_key, store_attachment
-from app.services.learning_service import create_item, list_items, notify, require_booking, visible_bookings
+from app.services.file_storage import MAX_FILE_BYTES, MAX_FILE_SIZE_LABEL, build_attachment_key, clean_filename, detect_attachment_type, store_attachment
+from app.services.learning_service import create_item, list_items, notify_user, require_booking, visible_bookings
 
 router = APIRouter()
 
-ALLOWED_ATTACHMENT_TYPES = {
-    b"%PDF-": ("application/pdf", "pdf"),
-    b"\x89PNG\r\n\x1a\n": ("image/png", "png"),
-    b"\xff\xd8\xff": ("image/jpeg", "jpg"),
-}
-OFFICE_ATTACHMENT_TYPES = {
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-}
-TEXT_ATTACHMENT_TYPES = {
-    ".txt": "text/plain",
-    ".csv": "text/csv",
-}
 MAX_REACTIONS_PER_MESSAGE = 8
 
 
@@ -118,28 +104,6 @@ def _counterpart(booking: Booking, user: User) -> str:
 
 def _attachment_signature(content: bytes, booking_id: int, user_id: int) -> str:
     return f"chat-file-{booking_id}-{user_id}-{hashlib.sha256(content).hexdigest()}"
-
-
-def _clean_filename(filename: str | None) -> str:
-    return (filename or "Shared document").replace("\\", "/").split("/")[-1][:160] or "Shared document"
-
-
-def _attachment_type(content: bytes, filename: str) -> tuple[str, str] | None:
-    match = next((value for signature, value in ALLOWED_ATTACHMENT_TYPES.items() if content.startswith(signature)), None)
-    if match is not None:
-        return match
-    lowered = filename.lower()
-    extension = next((ext for ext in OFFICE_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
-    if extension and content.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
-        return OFFICE_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
-    extension = next((ext for ext in TEXT_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
-    if extension:
-        try:
-            content.decode("utf-8")
-        except UnicodeDecodeError:
-            return None
-        return TEXT_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
-    return None
 
 
 async def _message_response(db: AsyncSession, user: User, booking_id: int, item_id: int) -> dict[str, Any]:
@@ -327,10 +291,10 @@ async def upload_message_attachment(
     content = await file.read(MAX_FILE_BYTES + 1)
     if not content or len(content) > MAX_FILE_BYTES:
         raise HTTPException(413, f"Choose a non-empty file up to {MAX_FILE_SIZE_LABEL}")
-    title = _clean_filename(file.filename)
-    match = _attachment_type(content, title)
+    title = clean_filename(file.filename)
+    match = detect_attachment_type(content, title)
     if match is None:
-        raise HTTPException(415, "Only PDF, image, Office, text and CSV files are supported")
+        raise HTTPException(415, "Only PDF, image, Office, text, Markdown, JSON and CSV files are supported")
     reply_to_item_id = reply_to_item_id_form or reply_to_item_id_query
     if reply_to_item_id is not None:
         reply = await db.get(LearningItem, reply_to_item_id)
@@ -372,7 +336,7 @@ async def upload_message_attachment(
         content=stored_content,
     ))
     recipient = booking.tutor.user_id if user.id == booking.student_id else booking.student_id
-    notify(db, recipient, f"New file from {user.first_name}", title, booking_id)
+    await notify_user(db, recipient, f"New file from {user.first_name}", title, booking_id)
     await db.commit()
     response = await _message_response(db, user, booking_id, item.id)
     await manager.broadcast(booking_id, {"type": "message", "message": response})

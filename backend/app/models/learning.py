@@ -1,6 +1,6 @@
 """Persistent learning activity protected by booking membership."""
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, LargeBinary, JSON, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, LargeBinary, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
@@ -44,6 +44,20 @@ class Notification(Base):
     booking_id: Mapped[int | None] = mapped_column(ForeignKey("bookings.id"))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PushDevice(Base):
+    __tablename__ = "push_devices"
+    __table_args__ = (UniqueConstraint("token", name="uq_push_devices_token"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    token: Mapped[str] = mapped_column(String(255), nullable=False)
+    platform: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
+    device_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class MessageReceipt(Base):

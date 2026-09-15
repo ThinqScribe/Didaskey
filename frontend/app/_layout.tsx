@@ -8,6 +8,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import "@/global.css";
 import { Colors } from "@/constants";
+import { registerForPushNotifications } from "@/lib/device/notifications";
+import * as Notifications from "expo-notifications";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -40,6 +42,20 @@ export default function RootLayout() {
       void SplashScreen.hideAsync().catch(() => undefined);
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (status === "authenticated") void registerForPushNotifications();
+  }, [status, user?.id]);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const bookingId = response.notification.request.content.data?.booking_id;
+      if (typeof bookingId === "number" || typeof bookingId === "string") {
+        router.push(`/learning/${bookingId}` as any);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded) return null;
   if (status === "loading") return <BootSplash message="Preparing your learning space." />;

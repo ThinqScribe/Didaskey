@@ -40,6 +40,7 @@ import {
   type LearningItem,
 } from "@/lib/api/learning";
 import { useAuthStore } from "@/lib/store/auth";
+import { setActiveConversationBookingId } from "@/lib/store/chatPresence";
 
 const NAVY = "#071D3A";
 const LIME = "#BFFF4B";
@@ -234,7 +235,7 @@ function MessageStatusTicks({ message }: { message: LearningItem }) {
   return <Ionicons name="checkmark" size={17} color={MUTED_NAVY} />;
 }
 
-function ConversationAvatar({ name, support = false, size = 72 }: { name: string; support?: boolean; size?: number }) {
+function ConversationAvatar({ name, support = false, size = 61 }: { name: string; support?: boolean; size?: number }) {
   const avatarUrl = AVATAR_IMAGES[name];
 
   return (
@@ -802,6 +803,11 @@ export default function MessagesScreen() {
   const recent = filteredConversations.filter(item => !pinnedIds.has(item.booking_id));
   const unreadTotal = conversations.reduce((sum, item) => sum + (item.unread_count ?? 0), 0);
 
+  useEffect(() => {
+    setActiveConversationBookingId(active?.booking_id ?? null);
+    return () => setActiveConversationBookingId(null);
+  }, [active?.booking_id]);
+
   async function openConversation(conversation: Conversation) {
     setActive(conversation);
     setReplyTo(null);
@@ -1011,11 +1017,18 @@ export default function MessagesScreen() {
           "application/pdf",
           "image/png",
           "image/jpeg",
+          "image/webp",
+          "image/gif",
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           "application/vnd.openxmlformats-officedocument.presentationml.presentation",
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/msword",
+          "application/vnd.ms-powerpoint",
+          "application/vnd.ms-excel",
           "text/plain",
           "text/csv",
+          "text/markdown",
+          "application/json",
         ],
         copyToCacheDirectory: true,
         multiple: true,
@@ -1220,7 +1233,7 @@ export default function MessagesScreen() {
               ) : filteredConversations.length === 0 ? (
                 <>
                   <View style={styles.searchBar}>
-                    <Ionicons name="search-outline" size={29} color={NAVY} />
+                    <Ionicons name="search-outline" size={25} color={NAVY} />
                     <TextInput
                       value={query}
                       onChangeText={setQuery}
@@ -1228,7 +1241,7 @@ export default function MessagesScreen() {
                       placeholderTextColor={MUTED_NAVY}
                       style={styles.searchInput}
                     />
-                    <Ionicons name="options-outline" size={28} color={NAVY} />
+                    <Ionicons name="options-outline" size={24} color={NAVY} />
                   </View>
                   <View style={styles.filterRow}>
                     {([
@@ -1251,7 +1264,7 @@ export default function MessagesScreen() {
               ) : (
                 <>
                   <View style={styles.searchBar}>
-                    <Ionicons name="search-outline" size={29} color={NAVY} />
+                    <Ionicons name="search-outline" size={25} color={NAVY} />
                     <TextInput
                       value={query}
                       onChangeText={setQuery}
@@ -1259,7 +1272,7 @@ export default function MessagesScreen() {
                       placeholderTextColor={MUTED_NAVY}
                       style={styles.searchInput}
                     />
-                    <Ionicons name="options-outline" size={28} color={NAVY} />
+                    <Ionicons name="options-outline" size={24} color={NAVY} />
                   </View>
                   <View style={styles.filterRow}>
                     {([
@@ -1315,7 +1328,7 @@ export default function MessagesScreen() {
               <Pressable accessibilityRole="button" onPress={closeConversation} style={styles.threadBack}>
                 <Ionicons name="chevron-back" size={33} color={NAVY} />
               </Pressable>
-              <ConversationAvatar name={active.counterpart} support={isSupportConversation(active)} size={56} />
+              <ConversationAvatar name={active.counterpart} support={isSupportConversation(active)} size={48} />
               <View style={styles.threadNameBlock}>
                 <View style={styles.threadNameLine}>
                   <Text style={styles.threadName} numberOfLines={1}>{active.counterpart}</Text>
@@ -1403,7 +1416,7 @@ export default function MessagesScreen() {
               )}
               <View style={styles.composer}>
                 <Pressable accessibilityRole="button" onPress={attachDocument} disabled={sending || !!editingMessage} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed, (sending || !!editingMessage) && styles.disabled]}>
-                  <Ionicons name="add" size={28} color="#FFFFFF" />
+                  <Ionicons name="add" size={24} color="#FFFFFF" />
                 </Pressable>
                 <View style={styles.inputWrap}>
                   <TextInput
@@ -1421,7 +1434,7 @@ export default function MessagesScreen() {
                   disabled={sending || (!draft.trim() && !pendingAttachments.length)}
                   style={({ pressed }) => [styles.sendButton, pressed && styles.pressed, (sending || (!draft.trim() && !pendingAttachments.length)) && styles.disabled]}
                 >
-                  {sending ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="send" size={21} color="#FFFFFF" />}
+                  {sending ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="send" size={18} color="#FFFFFF" />}
                 </Pressable>
               </View>
             </View>
@@ -1439,58 +1452,58 @@ const styles = StyleSheet.create({
   inboxHeader: {
     width: "100%",
     maxWidth: 470,
-    minHeight: 104,
+    minHeight: 88,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 18,
+    gap: 10,
+    paddingHorizontal: 15,
     borderBottomWidth: 1,
     borderBottomColor: DIVIDER,
   },
   plainBack: { marginRight: 2 },
   inboxTitleWrap: { flex: 1, minWidth: 0 },
-  inboxTitle: { fontFamily: "sans-bold", fontSize: 31, lineHeight: 36, color: NAVY },
-  inboxSubtitle: { marginTop: 2, fontFamily: "sans-medium", fontSize: 15, color: MUTED_NAVY },
+  inboxTitle: { fontFamily: "sans-bold", fontSize: 26, lineHeight: 31, color: NAVY },
+  inboxSubtitle: { marginTop: 2, fontFamily: "sans-medium", fontSize: 13, color: MUTED_NAVY },
   inboxContent: {
     width: "100%",
     maxWidth: 470,
     alignSelf: "center",
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingHorizontal: 15,
+    paddingTop: 15,
   },
   messageLoading: {
     paddingTop: 18,
     paddingHorizontal: 8,
   },
   searchBar: {
-    minHeight: 58,
-    borderRadius: 19,
+    minHeight: 49,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
+    gap: 10,
+    paddingHorizontal: 14,
     backgroundColor: "#F0F2F6",
   },
-  searchInput: { flex: 1, fontFamily: "sans-medium", fontSize: 17, color: NAVY },
-  filterRow: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 28 },
+  searchInput: { flex: 1, fontFamily: "sans-medium", fontSize: 14, color: NAVY },
+  filterRow: { flexDirection: "row", gap: 8, marginTop: 14, marginBottom: 24 },
   filterChip: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 22,
+    minHeight: 37,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
     backgroundColor: "#F0F2F6",
   },
   filterChipActive: { backgroundColor: NAVY },
-  filterText: { fontFamily: "sans-medium", fontSize: 16, color: MUTED_NAVY },
+  filterText: { fontFamily: "sans-medium", fontSize: 14, color: MUTED_NAVY },
   filterTextActive: { color: "#FFFFFF" },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   sectionTitle: { fontFamily: "sans-bold", fontSize: 18, color: MUTED_NAVY },
   editText: { fontFamily: "sans-semibold", fontSize: 15, color: "#0D63F3" },
   recentTitle: { marginTop: 30, marginBottom: 12 },
-  conversationRow: { minHeight: 118, flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14 },
+  conversationRow: { minHeight: 100, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: DIVIDER },
   avatar: { alignItems: "center", justifyContent: "center", backgroundColor: NAVY, overflow: "visible" },
   avatarImage: { backgroundColor: "#E8EBF0" },
@@ -1509,15 +1522,15 @@ const styles = StyleSheet.create({
   },
   conversationCopy: { flex: 1, minWidth: 0 },
   nameLine: { flexDirection: "row", alignItems: "center", gap: 5 },
-  conversationName: { flex: 1, fontFamily: "sans-bold", fontSize: 18, color: NAVY },
-  conversationSubject: { marginTop: 4, fontFamily: "sans-medium", fontSize: 14, color: MUTED_NAVY },
-  conversationLast: { marginTop: 7, fontFamily: "sans-medium", fontSize: 15, color: NAVY },
+  conversationName: { flex: 1, fontFamily: "sans-bold", fontSize: 15, color: NAVY },
+  conversationSubject: { marginTop: 3, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
+  conversationLast: { marginTop: 6, fontFamily: "sans-medium", fontSize: 13, color: NAVY },
   lessonMeta: { marginTop: 9, flexDirection: "row", alignItems: "center", gap: 8 },
   lessonMetaText: { flex: 1, fontFamily: "sans-medium", fontSize: 13, color: MUTED_NAVY },
-  conversationRight: { width: 58, minHeight: 88, alignItems: "flex-end", justifyContent: "space-between" },
-  conversationTime: { fontFamily: "sans-medium", fontSize: 13, color: MUTED_NAVY },
-  unreadBadge: { minWidth: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: LIME },
-  unreadText: { fontFamily: "sans-bold", fontSize: 13, color: NAVY },
+  conversationRight: { width: 49, minHeight: 75, alignItems: "flex-end", justifyContent: "space-between" },
+  conversationTime: { fontFamily: "sans-medium", fontSize: 11, color: MUTED_NAVY },
+  unreadBadge: { minWidth: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: LIME },
+  unreadText: { fontFamily: "sans-bold", fontSize: 11, color: NAVY },
   archivedRow: {
     minHeight: 72,
     flexDirection: "row",
@@ -1533,46 +1546,46 @@ const styles = StyleSheet.create({
   threadHeader: {
     width: "100%",
     maxWidth: 470,
-    minHeight: 96,
+    minHeight: 82,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: 7,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: DIVIDER,
   },
   threadBack: { marginRight: -4 },
   threadNameBlock: { flex: 1, minWidth: 0 },
   threadNameLine: { flexDirection: "row", alignItems: "center", gap: 5 },
-  threadName: { flex: 1, fontFamily: "sans-bold", fontSize: 20, color: NAVY },
-  threadSubtitle: { marginTop: 4, fontFamily: "sans-medium", fontSize: 14, color: MUTED_NAVY },
+  threadName: { flex: 1, fontFamily: "sans-bold", fontSize: 17, color: NAVY },
+  threadSubtitle: { marginTop: 3, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
   lessonBanner: {
-    minHeight: 86,
+    minHeight: 73,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     backgroundColor: SOFT_MINT,
-    paddingHorizontal: 18,
+    paddingHorizontal: 15,
   },
   lessonAccent: { position: "absolute", left: 10, top: 20, bottom: 10, width: 4, borderRadius: 2, backgroundColor: LIME },
-  lessonIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", marginLeft: 12, backgroundColor: "#C6F7EE" },
+  lessonIcon: { width: 37, height: 37, borderRadius: 10, alignItems: "center", justifyContent: "center", marginLeft: 10, backgroundColor: "#C6F7EE" },
   lessonCopy: { flex: 1, minWidth: 0 },
-  lessonKicker: { textTransform: "uppercase", fontFamily: "sans-bold", fontSize: 12, color: MUTED_NAVY },
-  lessonTitle: { marginTop: 5, fontFamily: "sans-bold", fontSize: 16, color: NAVY },
+  lessonKicker: { textTransform: "uppercase", fontFamily: "sans-bold", fontSize: 10, color: MUTED_NAVY },
+  lessonTitle: { marginTop: 4, fontFamily: "sans-bold", fontSize: 14, color: NAVY },
   viewLesson: { flexDirection: "row", alignItems: "center", gap: 6 },
-  viewLessonText: { fontFamily: "sans-semibold", fontSize: 15, color: "#0D63F3" },
-  threadContent: { width: "100%", maxWidth: 470, alignSelf: "center", paddingHorizontal: 14, paddingTop: 22, paddingBottom: 20 },
-  todayLabel: { alignSelf: "center", marginBottom: 22, fontFamily: "sans-semibold", fontSize: 14, color: MUTED_NAVY },
-  messageLine: { flexDirection: "row", alignItems: "flex-end", gap: 9, marginBottom: 18 },
+  viewLessonText: { fontFamily: "sans-semibold", fontSize: 13, color: "#0D63F3" },
+  threadContent: { width: "100%", maxWidth: 470, alignSelf: "center", paddingHorizontal: 12, paddingTop: 19, paddingBottom: 17 },
+  todayLabel: { alignSelf: "center", marginBottom: 19, fontFamily: "sans-semibold", fontSize: 12, color: MUTED_NAVY },
+  messageLine: { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 15 },
   messageLineMine: { justifyContent: "flex-end" },
   messageStack: { maxWidth: "80%" },
   messageStackMine: { alignItems: "flex-end" },
-  bubble: { borderRadius: 17, paddingHorizontal: 15, paddingVertical: 12 },
+  bubble: { borderRadius: 14, paddingHorizontal: 13, paddingVertical: 10 },
   bubbleMine: { borderBottomRightRadius: 3, backgroundColor: NAVY },
   bubbleOther: { borderBottomLeftRadius: 3, backgroundColor: "#F0F3F8" },
   attachmentBubble: { paddingHorizontal: 0, paddingVertical: 0, backgroundColor: "transparent" },
-  messageText: { fontFamily: "sans-medium", fontSize: 16, lineHeight: 23, color: NAVY },
+  messageText: { fontFamily: "sans-medium", fontSize: 14, lineHeight: 20, color: NAVY },
   messageTextMine: { color: "#FFFFFF" },
   deletedMessageText: { fontFamily: "sans-semibold", fontStyle: "italic", opacity: 0.72 },
   bubbleMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 7 },
@@ -1595,21 +1608,21 @@ const styles = StyleSheet.create({
   replyText: { marginTop: 2, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
   replyTextMine: { color: "#C9D8EC" },
   fileCard: {
-    minHeight: 76,
-    minWidth: 260,
+    minHeight: 65,
+    minWidth: 221,
     borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    padding: 12,
+    gap: 10,
+    padding: 10,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#DCE1EA",
   },
-  pdfIcon: { width: 46, height: 46, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#FCE8E8" },
-  fileName: { fontFamily: "sans-bold", fontSize: 14, color: NAVY },
-  fileMeta: { marginTop: 4, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
-  downloadButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#EFF2F7" },
+  pdfIcon: { width: 39, height: 39, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#FCE8E8" },
+  fileName: { fontFamily: "sans-bold", fontSize: 12, color: NAVY },
+  fileMeta: { marginTop: 3, fontFamily: "sans-medium", fontSize: 10, color: MUTED_NAVY },
+  downloadButton: { width: 37, height: 37, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#EFF2F7" },
   reactionRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
   reactionRowMine: { justifyContent: "flex-end" },
   reactionChip: { minHeight: 26, borderRadius: 13, paddingHorizontal: 8, justifyContent: "center", backgroundColor: "#EDF2F8" },
@@ -1641,11 +1654,11 @@ const styles = StyleSheet.create({
   previewName: { fontFamily: "sans-bold", fontSize: 13, color: NAVY },
   previewMeta: { marginTop: 2, fontFamily: "sans-medium", fontSize: 12, color: MUTED_NAVY },
   previewRemove: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
-  composer: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 6 },
-  plusButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: NAVY },
-  inputWrap: { flex: 1, minHeight: 44, maxHeight: 88, borderRadius: 22, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, backgroundColor: "#F3F5F8", borderWidth: 1, borderColor: "#DADDE7" },
-  input: { flex: 1, maxHeight: 72, fontFamily: "sans-medium", fontSize: 14, color: NAVY, paddingVertical: 5 },
-  sendButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: NAVY },
+  composer: { minHeight: 41, flexDirection: "row", alignItems: "center", gap: 6 },
+  plusButton: { width: 37, height: 37, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: NAVY },
+  inputWrap: { flex: 1, minHeight: 37, maxHeight: 75, borderRadius: 19, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, backgroundColor: "#F3F5F8", borderWidth: 1, borderColor: "#DADDE7" },
+  input: { flex: 1, maxHeight: 61, fontFamily: "sans-medium", fontSize: 13, color: NAVY, paddingVertical: 4 },
+  sendButton: { width: 37, height: 37, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: NAVY },
   emptyCard: { minHeight: 180, borderRadius: 8, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#DADDE7" },
   emptyTitle: { marginTop: 12, fontFamily: "sans-bold", fontSize: 18, color: NAVY },
   emptyText: { marginTop: 8, textAlign: "center", fontFamily: "sans-medium", fontSize: 13, lineHeight: 19, color: MUTED_NAVY },

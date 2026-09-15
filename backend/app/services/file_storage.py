@@ -10,6 +10,61 @@ from app.core.config import settings
 MAX_FILE_BYTES = 200 * 1024 * 1024
 MAX_FILE_SIZE_LABEL = "200 MB"
 
+OFFICE_ATTACHMENT_TYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+LEGACY_OFFICE_ATTACHMENT_TYPES = {
+    ".doc": "application/msword",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".xls": "application/vnd.ms-excel",
+}
+TEXT_ATTACHMENT_TYPES = {
+    ".txt": "text/plain",
+    ".csv": "text/csv",
+    ".md": "text/markdown",
+    ".json": "application/json",
+}
+
+
+def clean_filename(filename: str | None, fallback: str = "Shared document") -> str:
+    return (filename or fallback).replace("\\", "/").split("/")[-1][:160] or fallback
+
+
+def detect_attachment_type(content: bytes, filename: str) -> tuple[str, str] | None:
+    signatures = [
+        (b"%PDF-", "application/pdf", "pdf"),
+        (b"\x89PNG\r\n\x1a\n", "image/png", "png"),
+        (b"\xff\xd8\xff", "image/jpeg", "jpg"),
+        (b"GIF87a", "image/gif", "gif"),
+        (b"GIF89a", "image/gif", "gif"),
+        (b"RIFF", "image/webp", "webp"),
+    ]
+    for signature, media_type, extension in signatures:
+        if content.startswith(signature):
+            if media_type == "image/webp" and content[8:12] != b"WEBP":
+                continue
+            return media_type, extension
+
+    lowered = filename.lower()
+    extension = next((ext for ext in OFFICE_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
+    if extension and content.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
+        return OFFICE_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
+
+    extension = next((ext for ext in LEGACY_OFFICE_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
+    if extension and content.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        return LEGACY_OFFICE_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
+
+    extension = next((ext for ext in TEXT_ATTACHMENT_TYPES if lowered.endswith(ext)), None)
+    if extension:
+        try:
+            content.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return TEXT_ATTACHMENT_TYPES[extension], extension.removeprefix(".")
+    return None
+
 
 def storage_driver() -> str:
     return settings.FILE_STORAGE_DRIVER.strip().lower() or "database"

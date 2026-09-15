@@ -378,9 +378,9 @@ async def end(
     classroom.status = ClassroomStatus.ENDED
     classroom.ended_at = now
     booking.status = BookingStatus.COMPLETED
-    from app.services.learning_service import notify
-    notify(db, booking.student_id, "Session completed", "Your materials, assignments and feedback remain available in Learning.", booking.id)
-    notify(db, booking.tutor.user_id, "Session completed", "Add lesson notes and feedback in Learning.", booking.id)
+    from app.services.learning_service import notify_user
+    await notify_user(db, booking.student_id, "Session completed", "Your materials, assignments and feedback remain available in Learning.", booking.id)
+    await notify_user(db, booking.tutor.user_id, "Session completed", "Add lesson notes and feedback in Learning.", booking.id)
     await db.flush()
 
     # Best-effort LiveKit room teardown

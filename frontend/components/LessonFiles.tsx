@@ -13,11 +13,18 @@ const LESSON_FILE_TYPES = [
   "application/pdf",
   "image/png",
   "image/jpeg",
+  "image/webp",
+  "image/gif",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.ms-excel",
   "text/plain",
   "text/csv",
+  "text/markdown",
+  "application/json",
 ];
 
 export function UploadLessonFile({ bookingId, reload }: { bookingId: number; reload: () => Promise<void> }) {
@@ -39,7 +46,7 @@ export function UploadLessonFile({ bookingId, reload }: { bookingId: number; rel
     } catch (e) { setError(extractErrorMessage(e, "Upload failed. You can safely select the same file and retry.")); }
     finally { setBusy(false); }
   }
-  return <View style={{ gap: 8 }}><Action label="Upload lesson file" secondary busy={busy} onPress={upload} /><Text style={ui.muted}>PDF, images, Office files, TXT or CSV · up to {MAX_LESSON_FILE_SIZE_LABEL} · visible only to this session’s participants and administrators.</Text>{!!error && <Text accessibilityLiveRegion="polite" style={ui.text}>{error}</Text>}</View>;
+  return <View style={{ gap: 8 }}><Action label="Upload lesson file" secondary busy={busy} onPress={upload} /><Text style={ui.muted}>PDF, images, Office files, TXT, Markdown, JSON or CSV · up to {MAX_LESSON_FILE_SIZE_LABEL} · visible only to this session’s participants and administrators.</Text>{!!error && <Text accessibilityLiveRegion="polite" style={ui.text}>{error}</Text>}</View>;
 }
 
 export function DownloadLessonFile({ itemId, filename, mediaType }: { itemId: number; filename: string; mediaType: string }) {

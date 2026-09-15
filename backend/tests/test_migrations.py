@@ -29,7 +29,7 @@ def test_adopts_existing_development_classrooms(tmp_path, monkeypatch):
         db.execute("UPDATE alembic_version SET version_num='a8760d6ddd8a'")
     command.upgrade(config, "head")
     with sqlite3.connect(path) as db:
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0012_message_delivery_receipts"
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0013_push_devices"
 
 
 def test_upgrade_after_create_all_left_new_tables_but_old_users(tmp_path, monkeypatch):
@@ -47,4 +47,4 @@ def test_upgrade_after_create_all_left_new_tables_but_old_users(tmp_path, monkey
     command.upgrade(config, "head")
     with sqlite3.connect(path) as db:
         assert "token_version" in {row[1] for row in db.execute("PRAGMA table_info(users)")}
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0012_message_delivery_receipts"
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0013_push_devices"

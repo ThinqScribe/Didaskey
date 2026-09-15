@@ -8,7 +8,7 @@
  * Actions:
  *  - "Try Again"        → back to confirm step 4 to re-attempt payment
  *  - "Go to My Bookings" → bookings tab (booking stays pending_payment)
- *  - "Contact Support"  → placeholder
+ *  - "Contact Support"  → help center
  */
 
 import { Pressable, ScrollView, Text, View } from "react-native";

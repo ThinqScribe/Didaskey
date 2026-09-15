@@ -277,7 +277,7 @@ export default function ClassroomScreen() {
     <View className="flex-1" style={{ backgroundColor: "#0f172a" }}>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#071D3C" }}>
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: "#073E42" }}>
         <View style={styles.header}>
 
           {/* Live dot + title */}
@@ -326,9 +326,7 @@ export default function ClassroomScreen() {
       </SafeAreaView>
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
-      <View
-        style={styles.tabBar}
-      >
+      <View style={styles.tabBar}>
         {(
           [
             { id: "live",      icon: "videocam",              label: "Live"      },
@@ -419,22 +417,22 @@ export default function ClassroomScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 },
+  header: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, paddingTop: 7, paddingBottom: 9, backgroundColor: "#073E42" },
   headerTitleWrap: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
-  headerTitle: { fontFamily: "sans-bold", fontSize: 14, color: "#FFFFFF", letterSpacing: 0 },
-  headerSubtitle: { marginTop: 1, fontFamily: "sans-medium", fontSize: 11, color: "rgba(255,255,255,0.62)" },
-  timerPill: { minHeight: 30, borderRadius: 999, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
-  timerText: { fontFamily: "sans-bold", fontSize: 12, color: "rgba(255,255,255,0.78)" },
-  leaveButton: { minHeight: 32, borderRadius: 999, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
-  endButton: { minHeight: 32, borderRadius: 999, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(220,38,38,0.92)" },
-  headerButtonText: { fontFamily: "sans-bold", fontSize: 12, color: "#FFFFFF" },
-  tabBar: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingBottom: 10, backgroundColor: "#071D3C", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" },
-  tabButton: { flex: 1, minHeight: 42, borderRadius: 999, alignItems: "center", justifyContent: "center", gap: 2 },
+  headerTitle: { fontFamily: "sans-bold", fontSize: 13, color: "#FFFFFF", letterSpacing: 0 },
+  headerSubtitle: { marginTop: 1, fontFamily: "sans-medium", fontSize: 10, color: "rgba(255,255,255,0.62)" },
+  timerPill: { minHeight: 27, borderRadius: 999, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
+  timerText: { fontFamily: "sans-bold", fontSize: 11, color: "rgba(255,255,255,0.78)" },
+  leaveButton: { minHeight: 29, borderRadius: 999, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
+  endButton: { minHeight: 29, borderRadius: 999, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(220,38,38,0.92)" },
+  headerButtonText: { fontFamily: "sans-bold", fontSize: 11, color: "#FFFFFF" },
+  tabBar: { flexDirection: "row", gap: 7, paddingHorizontal: 10, paddingBottom: 9, backgroundColor: "#073E42", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" },
+  tabButton: { flex: 1, minHeight: 38, borderRadius: 999, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
   tabButtonActive: { backgroundColor: Colors.paleTeal },
   tabText: { fontFamily: "sans-bold", fontSize: 10, color: "rgba(255,255,255,0.55)" },
   tabTextActive: { color: "#071D3C" },
-  panel: { flex: 1, padding: 16, backgroundColor: Colors.background },
+  panel: { flex: 1, padding: 14, backgroundColor: Colors.background },
   panelScroll: { flex: 1, backgroundColor: Colors.background },
-  panelContent: { padding: 16, paddingBottom: 28 },
+  panelContent: { padding: 14, paddingBottom: 24 },
 });

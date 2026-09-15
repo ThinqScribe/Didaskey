@@ -36,6 +36,25 @@ class UserResponse(BaseModel):
     is_active: bool
     is_verified: bool
 
+
+class UserUpdateRequest(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=50)
+    last_name: str | None = Field(default=None, min_length=1, max_length=50)
+    phone_number: str | None = Field(default=None, min_length=8, max_length=20)
+    education_level: EducationLevel | None = None
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        normalized = "".join(value.split())
+        if not normalized.startswith("+") or not normalized[1:].isdigit():
+            raise ValueError("Phone number must use international format")
+        if not 8 <= len(normalized[1:]) <= 15:
+            raise ValueError("Phone number must contain 8 to 15 digits")
+        return normalized
+
 class SignupRequest(BaseModel):
     email: EmailStr
     phone_number: str = Field(min_length=8, max_length=20)

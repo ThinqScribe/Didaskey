@@ -49,6 +49,13 @@ export interface SignupPayload {
   last_name: string;
 }
 
+export interface UpdateUserPayload {
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string | null;
+  education_level?: EducationLevel | null;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -108,6 +115,12 @@ export async function resetPassword(token: string, new_password: string): Promis
 /** GET /auth/me → returns the currently authenticated user */
 export async function getMe(): Promise<User> {
   const { data } = await apiClient.get<User>("/auth/me");
+  return data;
+}
+
+/** PATCH /users/me → update editable profile fields */
+export async function updateMe(payload: UpdateUserPayload): Promise<User> {
+  const { data } = await apiClient.patch<User>("/users/me", payload);
   return data;
 }
 

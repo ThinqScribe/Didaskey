@@ -54,6 +54,18 @@
           "microphonePermission": "Didaskey needs microphone access so you can be heard during live tutoring sessions.",
           "recordAudioAndroid": true
         }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Didaskey needs calendar access to add your lesson schedule and reminders."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
       ]
     ],
     "experiments": {

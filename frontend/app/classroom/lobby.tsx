@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -79,59 +80,51 @@ export default function LobbyScreen() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-deep-teal" edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <View style={styles.shell}>
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <View className="flex-row items-center px-4 pt-2 pb-4">
+      <View style={styles.header}>
         <Pressable
           onPress={handleBack}
           hitSlop={12}
-          className="w-9 h-9 rounded-full items-center justify-center"
-          style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
           <Ionicons name="chevron-back" size={20} color={Colors.white} />
         </Pressable>
 
-        <View className="flex-1 items-center px-2">
-          <Text
-            className="text-[15px] font-sans-bold text-white"
-            numberOfLines={1}
-          >
+        <View style={styles.titleBlock}>
+          <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
           {!!counterpartName && (
-            <Text className="text-[12px] font-sans-medium text-white/60">
+            <Text style={styles.subtitle} numberOfLines={1}>
               with {counterpartName}
             </Text>
           )}
         </View>
 
-        {/* Spacer to balance back button */}
-        <View style={{ width: 36 }} />
+        <View style={styles.headerStatus}>
+          <View style={styles.statusDot} />
+        </View>
       </View>
 
       {/* ── Camera preview ─────────────────────────────────────────── */}
-      <View className="mx-4 rounded-3xl overflow-hidden" style={{ height: 320 }}>
+      <View style={styles.preview}>
         {cameraGranted && cameraOn ? (
           <CameraView
             style={{ flex: 1 }}
             facing="front"
           />
         ) : (
-          <View
-            className="flex-1 items-center justify-center"
-            style={{ backgroundColor: "#1a2a2a" }}
-          >
-            <View
-              className="w-20 h-20 rounded-full items-center justify-center mb-3"
-              style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-            >
+          <View style={styles.previewEmpty}>
+            <View style={styles.previewIcon}>
               <Ionicons
                 name={cameraGranted ? "videocam-off" : "videocam-outline"}
                 size={36}
                 color="rgba(255,255,255,0.4)"
               />
             </View>
-            <Text className="text-[13px] font-sans-medium text-white/40 text-center px-6">
+            <Text style={styles.previewText}>
               {cameraGranted
                 ? "Camera is off"
                 : "Camera permission not granted"}
@@ -141,7 +134,7 @@ export default function LobbyScreen() {
       </View>
 
       {/* ── Device controls ────────────────────────────────────────── */}
-      <View className="flex-row justify-center gap-5 mt-6 px-4">
+      <View style={styles.controls}>
         {/* Microphone */}
         <Pressable
           onPress={() => {
@@ -154,11 +147,10 @@ export default function LobbyScreen() {
             }
             setMicOn((v) => !v);
           }}
-          className="items-center gap-2"
+          style={({ pressed }) => [styles.controlButton, pressed && styles.pressed]}
         >
           <View
-            className="w-14 h-14 rounded-full items-center justify-center"
-            style={{
+            style={[styles.controlIcon, {
               backgroundColor: micOn && micGranted
                 ? "rgba(13,148,136,0.25)"
                 : "rgba(239,68,68,0.2)",
@@ -166,7 +158,7 @@ export default function LobbyScreen() {
               borderColor: micOn && micGranted
                 ? Colors.teal
                 : Colors.destructive,
-            }}
+            }]}
           >
             <Ionicons
               name={micOn && micGranted ? "mic" : "mic-off"}
@@ -174,7 +166,7 @@ export default function LobbyScreen() {
               color={micOn && micGranted ? Colors.teal : Colors.destructive}
             />
           </View>
-          <Text className="text-[11px] font-sans-medium text-white/60">
+          <Text style={styles.controlLabel}>
             {micOn && micGranted ? "Mic on" : "Mic off"}
           </Text>
         </Pressable>
@@ -191,11 +183,10 @@ export default function LobbyScreen() {
             }
             setCameraOn((v) => !v);
           }}
-          className="items-center gap-2"
+          style={({ pressed }) => [styles.controlButton, pressed && styles.pressed]}
         >
           <View
-            className="w-14 h-14 rounded-full items-center justify-center"
-            style={{
+            style={[styles.controlIcon, {
               backgroundColor: cameraOn && cameraGranted
                 ? "rgba(13,148,136,0.25)"
                 : "rgba(239,68,68,0.2)",
@@ -203,7 +194,7 @@ export default function LobbyScreen() {
               borderColor: cameraOn && cameraGranted
                 ? Colors.teal
                 : Colors.destructive,
-            }}
+            }]}
           >
             <Ionicons
               name={cameraOn && cameraGranted ? "videocam" : "videocam-off"}
@@ -211,7 +202,7 @@ export default function LobbyScreen() {
               color={cameraOn && cameraGranted ? Colors.teal : Colors.destructive}
             />
           </View>
-          <Text className="text-[11px] font-sans-medium text-white/60">
+          <Text style={styles.controlLabel}>
             {cameraOn && cameraGranted ? "Camera on" : "Camera off"}
           </Text>
         </Pressable>
@@ -220,11 +211,10 @@ export default function LobbyScreen() {
       {/* ── Permission notice ───────────────────────────────────────── */}
       {(!cameraGranted || !micGranted) && (
         <View
-          className="mx-4 mt-5 rounded-xl px-4 py-3 flex-row items-start gap-3"
-          style={{ backgroundColor: "rgba(234,179,8,0.12)", borderWidth: 1, borderColor: "rgba(234,179,8,0.3)" }}
+          style={styles.notice}
         >
           <Ionicons name="warning-outline" size={16} color="#eab308" style={{ marginTop: 1 }} />
-          <Text className="flex-1 text-[12px] font-sans-medium" style={{ color: "#fde047" }}>
+          <Text style={styles.noticeText}>
             {!cameraGranted && !micGranted
               ? "Camera and microphone access not granted. You can still join but will be invisible and muted."
               : !cameraGranted
@@ -235,32 +225,62 @@ export default function LobbyScreen() {
       )}
 
       {/* ── Spacer ─────────────────────────────────────────────────── */}
-      <View className="flex-1" />
+      <View style={styles.spacer} />
 
       {/* ── Join button ────────────────────────────────────────────── */}
-      <View className="px-6 pb-6">
+      <View style={styles.footer}>
         <Pressable
           onPress={handleJoin}
           disabled={joining}
-          className="rounded-2xl py-4 items-center justify-center active:opacity-80"
-          style={{ backgroundColor: Colors.teal }}
+          style={({ pressed }) => [styles.joinButton, pressed && styles.pressed, joining && styles.disabled]}
         >
           {joining ? (
             <ActivityIndicator color={Colors.white} />
           ) : (
-            <View className="flex-row items-center gap-2">
+            <View style={styles.joinContent}>
               <Ionicons name="videocam" size={18} color={Colors.white} />
-              <Text className="text-[16px] font-sans-bold text-white">
+              <Text style={styles.joinText}>
                 Join Classroom
               </Text>
             </View>
           )}
         </Pressable>
 
-        <Text className="text-center text-[11px] font-sans-medium text-white/40 mt-3">
+        <Text style={styles.footerText}>
           Your video and audio settings can be changed once inside.
         </Text>
+      </View>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#0B4A49" },
+  shell: { flex: 1, width: "100%", maxWidth: 470, alignSelf: "center", paddingHorizontal: 14 },
+  header: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 4, paddingBottom: 10 },
+  backButton: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
+  titleBlock: { flex: 1, minWidth: 0, alignItems: "center" },
+  title: { fontFamily: "sans-bold", fontSize: 14, color: Colors.white },
+  subtitle: { marginTop: 2, fontFamily: "sans-medium", fontSize: 10, color: "rgba(255,255,255,0.62)" },
+  headerStatus: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.teal },
+  preview: { height: 276, borderRadius: 14, overflow: "hidden", backgroundColor: "#102B2D" },
+  previewEmpty: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#102B2D" },
+  previewIcon: { width: 70, height: 70, borderRadius: 35, alignItems: "center", justifyContent: "center", marginBottom: 12, backgroundColor: "rgba(255,255,255,0.08)" },
+  previewText: { maxWidth: 250, textAlign: "center", fontFamily: "sans-medium", fontSize: 12, color: "rgba(255,255,255,0.46)" },
+  controls: { flexDirection: "row", justifyContent: "center", gap: 22, marginTop: 18 },
+  controlButton: { alignItems: "center", gap: 8 },
+  controlIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1.3 },
+  controlLabel: { fontFamily: "sans-medium", fontSize: 10, color: "rgba(255,255,255,0.62)" },
+  notice: { marginTop: 16, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11, flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "rgba(234,179,8,0.12)", borderWidth: 1, borderColor: "rgba(234,179,8,0.3)" },
+  noticeText: { flex: 1, fontFamily: "sans-medium", fontSize: 11, lineHeight: 17, color: "#fde047" },
+  spacer: { flex: 1 },
+  footer: { paddingHorizontal: 4, paddingBottom: 10 },
+  joinButton: { minHeight: 50, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: Colors.teal },
+  joinContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
+  joinText: { fontFamily: "sans-bold", fontSize: 15, color: Colors.white },
+  footerText: { marginTop: 11, textAlign: "center", fontFamily: "sans-medium", fontSize: 10, color: "rgba(255,255,255,0.46)" },
+  disabled: { opacity: 0.58 },
+  pressed: { opacity: 0.76 },
+});

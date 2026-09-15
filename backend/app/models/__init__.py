@@ -1,4 +1,4 @@
-from app.models.learning import LearningItem, Notification, Submission
+from app.models.learning import LearningItem, Notification, PushDevice, Submission
 from app.models.billing import (
     Booking,
     BookingStatus,
@@ -52,6 +52,7 @@ __all__ = [
     # communication
     "Classroom",
     "ClassroomParticipant",
+    "PushDevice",
     # communication enums
     "ClassroomStatus",
     "ParticipantRole",
