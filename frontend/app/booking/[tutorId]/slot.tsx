@@ -245,7 +245,7 @@ export default function SlotScreen() {
         return h * 60 + m > nowMins;
       });
     },
-    [availabilitySlots, today]
+    [availabilitySlots, todayKey]
   );
 
   const isDayAvailable = useCallback(

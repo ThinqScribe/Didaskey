@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import Animated, { Easing, FadeIn, FadeInUp } from "react-native-reanimated";
 
 import { Colors } from "@/constants";
 
@@ -39,11 +40,9 @@ export default function AuthShell({ children, back = false, topLink }: AuthShell
     <SafeAreaView style={styles.safe}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {doodles.map((item, index) => (
-          <Ionicons
+          <Animated.View
             key={`${item.icon}-${index}`}
-            name={item.icon}
-            size={item.size}
-            color={index % 2 ? Colors.teal : Colors.deepTeal}
+            entering={FadeIn.duration(520).delay(index * 45)}
             style={[
               styles.doodle,
               {
@@ -53,7 +52,13 @@ export default function AuthShell({ children, back = false, topLink }: AuthShell
                 transform: [{ rotate: item.rotate }],
               },
             ]}
-          />
+          >
+            <Ionicons
+              name={item.icon}
+              size={item.size}
+              color={index % 2 ? Colors.teal : Colors.deepTeal}
+            />
+          </Animated.View>
         ))}
         <View style={styles.watermarkCircleTop} />
         <View style={styles.watermarkCircleBottom} />
@@ -88,7 +93,9 @@ export default function AuthShell({ children, back = false, topLink }: AuthShell
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.content}>{children}</View>
+          <Animated.View entering={FadeInUp.duration(420).easing(Easing.out(Easing.cubic))} style={styles.content}>
+            {children}
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

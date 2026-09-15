@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   Pressable,
@@ -30,6 +29,7 @@ import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 import { Action, ErrorNotice, Field } from "@/components/ui/Workspace";
 import { EmptyState } from "@/components/ui/AppChrome";
 import { UnreadBadge } from "@/components/ui/UnreadBadge";
+import { MobileCardSkeletonGrid, MobileListSkeleton, Rise, ScreenFade } from "@/components/ui/Motion";
 
 const NAVY = "#071D3A";
 const LIME = "#BFFF4B";
@@ -392,7 +392,7 @@ export default function SearchScreen() {
   );
 
   const listHeader = useMemo(() => (
-    <View style={styles.listHeader}>
+    <ScreenFade style={styles.listHeader}>
       <Header filterCount={filterCount} />
       <SearchBox
         value={query}
@@ -452,15 +452,15 @@ export default function SearchScreen() {
           </Pressable>
         </View>
       )}
-      {loading && tutors.length > 0 && <ActivityIndicator color={Colors.teal} style={styles.inlineLoader} />}
-    </View>
+      {loading && tutors.length > 0 && <MobileListSkeleton count={1} />}
+    </ScreenFade>
   ), [activeSubjectId, error, featuredTutor, fetchTutors, filterCount, filtersOpen, loading, maxRate, minRating, mode, query, recommendedTutors.length, subjects, totalTutors, tutors.length]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {loading && tutors.length === 0 ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={Colors.teal} />
+        <View style={styles.skeletonContent}>
+          <MobileCardSkeletonGrid />
         </View>
       ) : tutors.length === 0 ? (
         <FlatList
@@ -485,7 +485,11 @@ export default function SearchScreen() {
           data={recommendedTutors}
           keyExtractor={item => String(item.id)}
           ListHeaderComponent={listHeader}
-          renderItem={({ item, index }) => <RecommendedTutor tutor={item} index={index} />}
+          renderItem={({ item, index }) => (
+            <Rise delay={Math.min(220, index * 35)}>
+              <RecommendedTutor tutor={item} index={index} />
+            </Rise>
+          )}
           ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
           ListFooterComponent={page < totalPages ? (
             <Action
@@ -523,10 +527,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: TabBar.height + TabBar.horizontalInset + 28,
   },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  skeletonContent: {
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingTop: 24,
   },
   listHeader: {
     paddingTop: 16,
@@ -1033,9 +1039,6 @@ const styles = StyleSheet.create({
   rowSeparator: {
     height: 1,
     backgroundColor: Colors.border,
-  },
-  inlineLoader: {
-    marginBottom: 16,
   },
   emptyWrap: {
     paddingTop: 36,

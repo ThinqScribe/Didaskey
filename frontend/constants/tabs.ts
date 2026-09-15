@@ -21,4 +21,5 @@ export const TUTOR_TABS: TabDef[] = [
   { name: "chat",      title: "Messages",  icon: "chatbubble-ellipses-outline", iconFocused: "chatbubble-ellipses" },
   { name: "earnings",  title: "Earnings",  icon: "wallet-outline",    iconFocused: "wallet"      },
   { name: "profile",   title: "Profile",   icon: "person-outline",    iconFocused: "person"      },
+  { name: "students",  title: "Students",  icon: "people-outline",    iconFocused: "people"      },
 ];

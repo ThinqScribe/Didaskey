@@ -4,6 +4,8 @@
  * All functions throw an AxiosError on failure; callers handle the message.
  */
 
+import { Platform } from "react-native";
+
 import { apiClient } from "./client";
 
 // ── Types (mirror backend schemas) ───────────────────────────────────────────
@@ -14,7 +16,9 @@ export type EducationLevel =
   | "primary_school"
   | "junior_secondary"
   | "senior_secondary"
-  | "high_school";
+  | "high_school"
+  | "undergraduate"
+  | "postgraduate";
 
 export interface User {
   id: number;
@@ -126,11 +130,20 @@ export function extractErrorMessage(error: unknown, fallback = "Something went w
 }
 
 /** POST /users/me/avatar — upload a profile photo, returns updated User */
-export async function uploadAvatar(imageUri: string, mimeType = "image/jpeg"): Promise<User> {
+export async function uploadAvatar(imageUri: string, mimeType = "image/jpeg", file?: File): Promise<User> {
   const form = new FormData();
-  form.append("file", { uri: imageUri, name: "avatar.jpg", type: mimeType } as any);
+  if (Platform.OS === "web") {
+    if (file) form.append("file", file, file.name || "avatar.jpg");
+    else {
+      const blob = await fetch(imageUri).then(response => response.blob());
+      form.append("file", blob, "avatar.jpg");
+    }
+  } else {
+    form.append("file", { uri: imageUri, name: "avatar.jpg", type: mimeType } as any);
+  }
   const { data } = await apiClient.post<User>("/users/me/avatar", form, {
     headers: { "Content-Type": "multipart/form-data" },
+    timeout: 60000,
   });
   return data;
 }

@@ -27,6 +27,8 @@ const EDUCATION_LEVELS: {
   { value: "junior_secondary", label: "Junior Secondary School", icon: "school-outline" },
   { value: "senior_secondary", label: "Senior Secondary School", icon: "school-outline" },
   { value: "high_school",      label: "High School",             icon: "business-outline" },
+  { value: "undergraduate",    label: "Undergraduate",           icon: "library-outline" },
+  { value: "postgraduate",     label: "Postgraduate",            icon: "ribbon-outline" },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -222,7 +224,7 @@ export default function SignUp() {
         <AuthButton label="Create Account" loading={loading} disabled={!canSubmit} onPress={handleSignUp} />
       </View>
 
-      <Text style={styles.footerCopy}>Personal learning for primary and secondary school students.</Text>
+      <Text style={styles.footerCopy}>Personal learning for school and university students.</Text>
     </AuthShell>
   );
 }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,6 +19,7 @@ import { getMyTutorProfile, listTutorBookings, getTutorStats, type TutorStats } 
 import type { TutorDetail } from "@/lib/api/tutors";
 import QuickLinks from "@/components/QuickLinks";
 import { UnreadBadge } from "@/components/ui/UnreadBadge";
+import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -138,8 +138,10 @@ export default function TutorDashboard() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center" edges={["top"]}>
-        <ActivityIndicator color={Colors.teal} />
+      <SafeAreaView className="flex-1 bg-background items-center justify-center px-5" edges={["top"]}>
+        <View style={{ width: "100%", maxWidth: 470 }}>
+          <LoadingState />
+        </View>
       </SafeAreaView>
     );
   }
@@ -158,6 +160,7 @@ export default function TutorDashboard() {
           alignSelf: "center",
         }}
       >
+        <ScreenFade>
         {/* Header */}
         <View className="mb-6">
   <View className="flex-row items-center justify-between">
@@ -235,27 +238,32 @@ export default function TutorDashboard() {
   </View>
 </View>
 
-        <View className="mb-5"><QuickLinks /></View>
+        <Rise delay={70} style={{ marginBottom: 20 }}>
+          <QuickLinks />
+        </Rise>
 
         {/* Week overview banner */}
-        <View className="rounded-lg px-5 py-5 mb-5"
-          style={{ backgroundColor: Colors.deepTeal }}>
-          <Text className="text-[11px] font-sans-bold uppercase mb-3"
-            style={{ color: `${Colors.softMint}80` }}>
-            Your Teaching Overview
-          </Text>
-          <View className="flex-row flex-wrap" style={{ gap: 10 }}>
-            <WeekStatCard value={String(stats?.total_sessions ?? 0)} label="Sessions" />
+        <Rise delay={120}>
+          <View className="rounded-lg px-5 py-5 mb-5"
+            style={{ backgroundColor: Colors.deepTeal }}>
+            <Text className="text-[11px] font-sans-bold uppercase mb-3"
+              style={{ color: `${Colors.softMint}80` }}>
+              Your Teaching Overview
+            </Text>
+            <View className="flex-row flex-wrap" style={{ gap: 10 }}>
+              <WeekStatCard value={String(stats?.total_sessions ?? 0)} label="Sessions" />
             <WeekStatCard value={String(stats?.completed_sessions ?? 0)} label="Completed" />
             <WeekStatCard value={hoursLabel} label="Time Taught" />
             <WeekStatCard
-              value={formatCurrency(parseFloat(stats?.total_earnings ?? "0"), stats?.currency ?? profile?.currency ?? "NGN", 0)}
-              label="Gross earned"
+              value={formatCurrency(parseFloat(stats?.tutor_payout ?? stats?.total_earnings ?? "0"), stats?.currency ?? profile?.currency ?? "NGN", 0)}
+              label="Your earnings"
             />
+            </View>
           </View>
-        </View>
+        </Rise>
 
         {/* Upcoming sessions */}
+        <Rise delay={170}>
         <View className="flex-row items-center justify-between mb-2">
           <Text className="text-[15px] font-sans-bold text-charcoal">Upcoming Sessions</Text>
           <Pressable onPress={() => router.push("/(tutor)/sessions")} hitSlop={8}>
@@ -279,8 +287,10 @@ export default function TutorDashboard() {
             ))
           )}
         </View>
+        </Rise>
 
         {/* Recent activity */}
+        <Rise delay={220}>
         <View className="flex-row items-center justify-between mb-2">
           <Text className="text-[15px] font-sans-bold text-charcoal">Recent Activity</Text>
           <Pressable onPress={() => router.push("/(tutor)/earnings")} hitSlop={8}>
@@ -304,6 +314,8 @@ export default function TutorDashboard() {
             ))
           )}
         </View>
+        </Rise>
+        </ScreenFade>
       </ScrollView>
     </SafeAreaView>
   );

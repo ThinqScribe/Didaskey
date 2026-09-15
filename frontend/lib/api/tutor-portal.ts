@@ -9,11 +9,20 @@ export interface TutorStats {
   completed_sessions: number;
   pending_sessions: number;
   total_earnings: string;
+  tutor_payout?: string;
+  platform_fee?: string;
+  gross_earnings?: string;
   currency: string;
   average_rating: string;
   review_count: number;
   total_hours_taught: number;
+  tutor_payout_rate?: number;
+  platform_fee_rate?: number;
+  basis?: string;
 }
+
+const TUTOR_PAYOUT_RATE = 0.7;
+const PLATFORM_FEE_RATE = 0.3;
 
 export async function getTutorStats(): Promise<TutorStats> { return (await apiClient.get("/tutors/me/stats")).data; }
 
@@ -68,21 +77,28 @@ export async function listTutorBookings(
 // ── Stats (derived client-side from bookings) ─────────────────────────────────
 
 export function computeStats(bookings: BookingResponse[], profile: TutorDetail): TutorStats {
-  const confirmed = bookings.filter((b) => b.status === "confirmed" || b.status === "completed");
   const pending   = bookings.filter((b) => b.status === "pending_payment");
-  const earnings  = bookings
+  const grossEarnings = bookings
     .filter((b) => b.status === "completed")
     .reduce((sum, b) => sum + parseFloat(b.amount), 0);
+  const tutorPayout = grossEarnings * TUTOR_PAYOUT_RATE;
+  const platformFee = grossEarnings * PLATFORM_FEE_RATE;
 
   return {
     total_sessions:       bookings.length,
     completed_sessions:   bookings.filter((b) => b.status === "completed").length,
     pending_sessions:     pending.length,
-    total_earnings:       earnings.toFixed(2),
+    total_earnings:       tutorPayout.toFixed(2),
+    tutor_payout:         tutorPayout.toFixed(2),
+    platform_fee:         platformFee.toFixed(2),
+    gross_earnings:       grossEarnings.toFixed(2),
     currency:             profile.currency,
     average_rating:       profile.average_rating,
     review_count:         profile.review_count,
     total_hours_taught:   profile.total_hours_taught,
+    tutor_payout_rate:    TUTOR_PAYOUT_RATE,
+    platform_fee_rate:    PLATFORM_FEE_RATE,
+    basis:                "Tutor payout is 70% of paid completed sessions; Didaskey retains 30%.",
   };
 }
 

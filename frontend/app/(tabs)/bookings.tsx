@@ -15,6 +15,7 @@ import { router } from "expo-router";
 
 import PaystackWebViewModal from "@/components/payment/PaystackWebViewModal";
 import { Colors, TabBar } from "@/constants";
+import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 import {
   cancelBooking,
@@ -524,58 +525,66 @@ export default function BookingsScreen() {
   }, []);
 
   const listHeader = (
-    <View>
+    <ScreenFade>
       <Header count={visibleBookings.length} />
-      <StatusTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Rise delay={60}>
+        <StatusTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      </Rise>
       {nextBooking && (
-        <FeaturedBooking
-          booking={nextBooking}
-          onCancel={askCancel}
-          onPay={handlePay}
-          paying={paying === nextBooking.id}
-          cancelling={cancelling === nextBooking.id}
-        />
+        <Rise delay={110}>
+          <FeaturedBooking
+            booking={nextBooking}
+            onCancel={askCancel}
+            onPay={handlePay}
+            paying={paying === nextBooking.id}
+            cancelling={cancelling === nextBooking.id}
+          />
+        </Rise>
       )}
       {(nextBooking || bookings.length > 0) && (
-        <View style={styles.laterHeader}>
-          <View>
-            <Text style={styles.laterTitle}>{nextBooking ? "Later" : "Sessions"}</Text>
-            <Text style={styles.laterSubtitle}>
-              {monthScope === "this_month" ? "Only sessions in this month" : "Showing every month"}
-            </Text>
+        <Rise delay={150}>
+          <View style={styles.laterHeader}>
+            <View>
+              <Text style={styles.laterTitle}>{nextBooking ? "Later" : "Sessions"}</Text>
+              <Text style={styles.laterSubtitle}>
+                {monthScope === "this_month" ? "Only sessions in this month" : "Showing every month"}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle month filter"
+              onPress={() => setMonthScope(scope => scope === "this_month" ? "all" : "this_month")}
+              style={({ pressed }) => [styles.monthPill, pressed && styles.pressed]}
+            >
+              <Text style={styles.monthPillText}>{monthScope === "this_month" ? "This month" : "All months"}</Text>
+              <Ionicons name="chevron-down" size={18} color={NAVY} />
+            </Pressable>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle month filter"
-            onPress={() => setMonthScope(scope => scope === "this_month" ? "all" : "this_month")}
-            style={({ pressed }) => [styles.monthPill, pressed && styles.pressed]}
-          >
-            <Text style={styles.monthPillText}>{monthScope === "this_month" ? "This month" : "All months"}</Text>
-            <Ionicons name="chevron-down" size={18} color={NAVY} />
-          </Pressable>
-        </View>
+        </Rise>
       )}
-    </View>
+    </ScreenFade>
   );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={Colors.teal} />
+          <LoadingState />
         </View>
       ) : (
         <FlatList
           data={laterBookings}
           keyExtractor={item => String(item.id)}
           ListHeaderComponent={listHeader}
-          renderItem={({ item }) => (
-            <LaterBooking
-              booking={item}
-              onCancel={askCancel}
-              onPay={handlePay}
-              paying={paying === item.id}
-            />
+          renderItem={({ item, index }) => (
+            <Rise delay={Math.min(240, 40 + index * 35)}>
+              <LaterBooking
+                booking={item}
+                onCancel={askCancel}
+                onPay={handlePay}
+                paying={paying === item.id}
+              />
+            </Rise>
           )}
           ListEmptyComponent={!nextBooking ? (
             <EmptyBookings

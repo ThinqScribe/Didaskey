@@ -1,51 +1,53 @@
-/**
- * Entry point — waits for the auth bootstrap to complete before
- * redirecting. This prevents the "flash to sign-in" on reload.
- *
- * Navigation is deferred to the next tick so the Root Layout's <Stack>
- * has a chance to mount before router.replace is called.
- */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
-import { View, ActivityIndicator } from "react-native";
+
+import { BootSplash, WelcomeLanding } from "@/components/onboarding/LaunchScreens";
 import { useAuthStore } from "@/lib/store/auth";
-import { Colors } from "@/constants";
 
 export default function Index() {
   const { status, user } = useAuthStore();
   const mounted = useRef(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     mounted.current = true;
-    // Authentication is hydrated by the root layout, including deep links.
     return () => { mounted.current = false; };
   }, []);
 
   useEffect(() => {
+    if (status !== "unauthenticated") return undefined;
+    setShowWelcome(false);
+    const timer = setTimeout(() => {
+      if (mounted.current) setShowWelcome(true);
+    }, 1350);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
     if (status === "loading" || status === "offline") return;
+    if (status !== "authenticated") return;
 
     const t = setTimeout(() => {
       if (!mounted.current) return;
-      if (status === "authenticated") {
-        const role = user?.role;
-        if (role === "admin") {
-          router.replace("/admin");
-        } else if (role === "tutor") {
-          router.replace("/(tutor)/dashboard");
-        } else {
-          router.replace("/(tabs)/home");
-        }
+      const role = user?.role;
+      if (role === "admin") {
+        router.replace("/admin");
+      } else if (role === "tutor") {
+        router.replace("/(tutor)/dashboard");
       } else {
-        router.replace("/(auth)/sign-in");
+        router.replace("/(tabs)/home");
       }
     }, 0);
 
     return () => clearTimeout(t);
   }, [status, user?.role]);
 
+  if (!showWelcome) return <BootSplash />;
+
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background }}>
-      <ActivityIndicator size="large" color="#17A389" />
-    </View>
+    <WelcomeLanding
+      onGetStarted={() => router.push("/(auth)/sign-up")}
+      onSignIn={() => router.push("/(auth)/sign-in")}
+    />
   );
 }

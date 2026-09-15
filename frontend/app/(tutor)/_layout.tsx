@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -8,6 +8,9 @@ import type { TabDef } from "@/constants";
 import { UnreadBadge } from "@/components/ui/UnreadBadge";
 import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 
+const ACTIVE_ICON_BG = "#BFFF4B";
+const INACTIVE_ICON = "rgba(255,252,247,0.74)";
+
 function TabIcon({ focused, icon, iconFocused, badgeCount = 0 }: {
   focused: boolean;
   icon: TabDef["icon"];
@@ -15,20 +18,11 @@ function TabIcon({ focused, icon, iconFocused, badgeCount = 0 }: {
   badgeCount?: number;
 }) {
   return (
-    <View
-      style={{
-        width: TabBar.iconFrame,
-        height: TabBar.iconFrame,
-        borderRadius: TabBar.iconFrame / 2,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: focused ? Colors.tabActiveBg : "transparent",
-      }}
-    >
+    <View style={[styles.iconFrame, focused && styles.iconFrameActive]}>
       <Ionicons
         name={focused ? iconFocused : icon}
         size={22}
-        color={focused ? Colors.tabIconActive : Colors.tabIconInactive}
+        color={focused ? Colors.primary : INACTIVE_ICON}
       />
       <UnreadBadge count={badgeCount} />
     </View>
@@ -48,8 +42,7 @@ export default function TutorTabLayout() {
           name={tab.name}
           options={{
             title: tab.title,
-            tabBarShowLabel: true,
-            tabBarLabelStyle: { fontFamily: "sans-semibold", fontSize: 10, marginTop: -3, marginBottom: 8 },
+            tabBarShowLabel: false,
             tabBarActiveTintColor: Colors.tabIconActive,
             tabBarInactiveTintColor: Colors.tabIconInactive,
             tabBarIcon: ({ focused }) => (
@@ -59,20 +52,16 @@ export default function TutorTabLayout() {
               position: "absolute",
               display: tab.name === "chat" ? "none" : "flex",
               bottom: bottomOffset,
-              marginHorizontal: TabBar.horizontalInset,
               height: TabBar.height,
+              marginHorizontal: TabBar.horizontalInset,
               borderRadius: TabBar.radius,
-              backgroundColor: Colors.tabBar,
-              borderWidth: 1,
-              borderColor: Colors.border,
-              elevation: 8,
-              shadowColor: Colors.deepTeal,
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.12,
-              shadowRadius: 18,
+              backgroundColor: Colors.primary,
+              borderTopWidth: 0,
+              overflow: "hidden",
+              elevation: 0,
             },
             tabBarItemStyle: {
-              paddingTop: 4,
+              paddingVertical: (TabBar.height / 2) - (TabBar.iconFrame / 1.6),
             },
             tabBarIconStyle: {
               width: TabBar.iconFrame,
@@ -85,3 +74,17 @@ export default function TutorTabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconFrame: {
+    width: TabBar.iconFrame,
+    height: TabBar.iconFrame,
+    borderRadius: TabBar.iconFrame / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  iconFrameActive: {
+    backgroundColor: ACTIVE_ICON_BG,
+  },
+});

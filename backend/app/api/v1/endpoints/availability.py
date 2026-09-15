@@ -1,4 +1,4 @@
-"""Authoritative WAT availability for the current Nigerian pre-varsity service."""
+"""Authoritative WAT availability for the current Nigerian tutoring service."""
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query

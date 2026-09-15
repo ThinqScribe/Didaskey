@@ -1,6 +1,6 @@
 # Didaskey interface structure
 
-Didaskey is a focused pre-varsity tutoring product. The interface should always answer three questions: what is next, what needs attention, and where can the learner or tutor act.
+Didaskey is a focused tutoring product for school and university learners. The interface should always answer three questions: what is next, what needs attention, and where can the learner or tutor act.
 
 ## Visual language
 
@@ -14,7 +14,7 @@ The redesign is original. It draws on recurring education UX patterns visible in
 
 ## Student flow
 
-1. **Sign in or create account** — one clear form, recovery link, student/tutor role choice and pre-varsity education level.
+1. **Sign in or create account** — one clear form, recovery link, student/tutor role choice and education level.
 2. **Home** — greeting and search, next confirmed lesson, progress snapshot, subject exploration, recommended verified tutors.
 3. **Find tutor** — query, subject, session-format, rating and maximum-price filters; paginated tutor cards.
 4. **Tutor profile** — identity and verification, experience/rating/hours, subjects, qualifications, delivery format, reviews, then one persistent price-and-book action.

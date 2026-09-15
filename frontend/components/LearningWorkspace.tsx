@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { apiClient } from "@/lib/api/client";
 import { Action, Card, ErrorNotice, Field, ui } from "@/components/ui/Workspace";
+import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 import { getLearningItems, publishItem, reviewAssignment, submitAssignment, type ItemKind, type LearningItem } from "@/lib/api/learning";
 import { extractErrorMessage } from "@/lib/api/auth";
 import { useAuthStore } from "@/lib/store/auth";
@@ -58,13 +59,13 @@ export default function LearningWorkspace({ bookingId, initialTab = "message", s
     } catch (e) { setError(extractErrorMessage(e, "Could not save. Your draft is still here.")); }
     finally { setBusy(false); }
   }
-  if (boardOpen) return <View style={{ gap: 16 }}><Action label="Back to learning tools" secondary onPress={() => setBoardOpen(false)} /><SharedWhiteboard bookingId={bookingId} /></View>;
-  return <View style={{ gap: 16 }}>
+  if (boardOpen) return <ScreenFade style={{ gap: 16 }}><Action label="Back to learning tools" secondary onPress={() => setBoardOpen(false)} /><SharedWhiteboard bookingId={bookingId} /></ScreenFade>;
+  return <ScreenFade style={{ gap: 16 }}>
     <View style={styles.toolHeader}><View style={{ flex: 1 }}><Text style={styles.toolTitle}>Lesson workspace</Text><Text style={styles.toolSubtitle}>Everything for this lesson, kept together.</Text></View>{showBoardButton && <Pressable accessibilityRole="button" onPress={() => setBoardOpen(true)} style={styles.boardButton}><Ionicons name="create-outline" size={17} color="#FFFFFF" /><Text style={styles.boardText}>Board</Text></Pressable>}</View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{toolTabs.map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }} onPress={() => setTab(item.key)} style={[styles.tab, tab === item.key && styles.tabActive]}><Ionicons name={item.icon} size={16} color={tab === item.key ? Colors.deepTeal : Colors.mutedForeground} /><Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text></Pressable>)}</ScrollView>
     <ErrorNotice message={error} retry={load} />
     {teaching && tab === "resource" && <Card><UploadLessonFile bookingId={bookingId} reload={load} /></Card>}
-    {loading ? <ActivityIndicator /> : items.filter(i => i.kind === tab).length === 0 ? <Card><Text style={ui.heading}>A fresh start</Text><Text style={ui.muted}>{tab === "message" ? "Send a message to prepare for your lesson. Your conversation stays available here." : "Your tutor will share learning activities here."}</Text></Card> : items.filter(i => i.kind === tab).map(item => <Card key={item.id}>
+    {loading ? <LoadingState compact /> : items.filter(i => i.kind === tab).length === 0 ? <Card><Text style={ui.heading}>A fresh start</Text><Text style={ui.muted}>{tab === "message" ? "Send a message to prepare for your lesson. Your conversation stays available here." : "Your tutor will share learning activities here."}</Text></Card> : items.filter(i => i.kind === tab).map((item, index) => <Rise key={item.id} delay={Math.min(180, index * 35)}><Card>
       <Text style={ui.muted}>{item.author_name} · {new Date(item.created_at).toLocaleString()}</Text>
       {!!item.title && <Text style={ui.heading}>{item.title}</Text>}
       <Text selectable style={ui.text}>{item.body}</Text>
@@ -73,7 +74,7 @@ export default function LearningWorkspace({ bookingId, initialTab = "message", s
       {item.due_at && <Text style={ui.muted}>Due {new Date(item.due_at).toLocaleDateString()}</Text>}
       {item.url && <Action label="Open resource" secondary onPress={() => { void Linking.openURL(item.url!).catch(() => setError("This resource could not be opened.")); }} />}
       {item.kind === "assignment" && <Assignment item={item} teaching={teaching} reload={load} />}
-    </Card>)}
+    </Card></Rise>)}
     {(teaching || tab === "message") && <Card>
       <Text style={ui.heading}>{tab === "message" ? "Keep the conversation going" : `Share ${tab === "assignment" ? "an assignment" : tab === "note" ? "lesson notes" : "a resource"}`}</Text>
       {tab !== "message" && <Field label="Title" value={title} onChangeText={setTitle} maxLength={160} />}
@@ -82,7 +83,7 @@ export default function LearningWorkspace({ bookingId, initialTab = "message", s
       {tab === "assignment" && <Field label="Due date (optional, YYYY-MM-DD)" value={due} onChangeText={setDue} placeholder="2026-10-15" />}
       <Action label={tab === "message" ? "Send message" : "Share with student"} onPress={send} busy={busy} disabled={!body.trim() || (tab !== "message" && !title.trim())} />
     </Card>}
-  </View>;
+  </ScreenFade>;
 }
 
 const styles = StyleSheet.create({

@@ -13,7 +13,7 @@ from app.core.dependencies import get_current_user
 from app.db.base import Base
 from app.db.session import get_db_session
 from app.main import app
-from app.models import Booking, TutorProfile, User
+from app.models import Booking, Transaction, TutorProfile, User
 from app.models import TutorAvailability
 from app.models.user import UserRole
 from app.schemas.auth import SignupRequest
@@ -161,6 +161,33 @@ async def test_request_body_is_bounded_before_parsing(scenario):
 
 
 @pytest.mark.asyncio
+async def test_tutor_stats_report_net_payout_after_didaskey_fee(scenario):
+    client, current, users, booking_id = scenario
+    async for db in app.dependency_overrides[get_db_session]():
+        booking = await db.get(Booking, booking_id)
+        booking.status = "completed"
+        db.add(Transaction(
+            booking_id=booking_id,
+            paystack_reference="paid-ref-1",
+            amount=Decimal("5000.00"),
+            currency="NGN",
+            status="success",
+            paid_at=datetime.now(timezone.utc),
+        ))
+        await db.commit()
+
+    current["user"] = users[1]
+    response = await client.get("/api/v1/tutors/me/stats")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["gross_earnings"] == "5000.00"
+    assert data["platform_fee"] == "1500.00"
+    assert data["tutor_payout"] == "3500.00"
+    assert data["total_earnings"] == "3500.00"
+    assert data["basis"].startswith("Tutor payout is 70%")
+
+
+@pytest.mark.asyncio
 async def test_admin_cancellation_returns_updated_booking_and_notifications(scenario):
     client, current, users, booking_id = scenario
     current["user"] = users[3]
@@ -272,11 +299,17 @@ async def test_classroom_join_uses_one_livekit_room_for_student_and_tutor(scenar
     assert tutor_claims["video"]["roomJoin"] is True
 
 
-@pytest.mark.parametrize("changes", [{"role": "parent"}, {"education_level": "undergraduate"}, {"education_level": "postgraduate"}, {"role": "admin"}])
-def test_prevarsity_signup_scope(changes):
+@pytest.mark.parametrize("changes", [{"role": "parent"}, {"role": "admin"}])
+def test_signup_rejects_unsupported_roles(changes):
     payload = dict(email="learner@example.com", phone_number="+2348000000000", password="testpassword", first_name="Ada", last_name="Test", role="student", education_level="primary_school")
     with pytest.raises(ValidationError):
         SignupRequest(**{**payload, **changes})
+
+
+@pytest.mark.parametrize("education_level", ["primary_school", "junior_secondary", "senior_secondary", "high_school", "undergraduate", "postgraduate"])
+def test_student_signup_accepts_supported_education_levels(education_level):
+    payload = dict(email="learner@example.com", phone_number="+2348000000000", password="testpassword", first_name="Ada", last_name="Test", role="student", education_level=education_level)
+    assert SignupRequest(**payload).education_level == education_level
 
 
 @pytest.mark.asyncio

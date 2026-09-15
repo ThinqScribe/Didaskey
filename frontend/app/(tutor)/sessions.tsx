@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -24,6 +23,7 @@ import {
 } from "@/lib/api/bookings";
 import { getMyTutorProfile, listTutorBookings } from "@/lib/api/tutor-portal";
 import { JoinSessionButton } from "@/components/classroom/JoinSessionButton";
+import { MobileListSkeleton, Rise, ScreenFade } from "@/components/ui/Motion";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Status configuration
@@ -329,6 +329,7 @@ export default function TutorSessions() {
       {/* Fixed Header Section */}
       {/* ─────────────────────────────────────────────────────────────── */}
 
+      <ScreenFade>
       <View onLayout={onHeaderLayout}>
         <View className="px-6 pt-5 pb-4">
           <View className="flex-row items-start justify-between">
@@ -403,6 +404,7 @@ export default function TutorSessions() {
           />
         </View>
       </View>
+      </ScreenFade>
 
       {/* ─────────────────────────────────────────────────────────────── */}
       {/* Scrollable Content */}
@@ -411,9 +413,9 @@ export default function TutorSessions() {
       {loading ? (
         <View
           style={{ height: listHeight }}
-          className="items-center justify-center"
+          className="px-6 pt-4"
         >
-          <ActivityIndicator color={Colors.teal} />
+          <MobileListSkeleton count={4} />
         </View>
       ) : bookings.length === 0 ? (
         <View
@@ -464,8 +466,10 @@ export default function TutorSessions() {
           scrollIndicatorInsets={{
             bottom: listBottomPadding,
           }}
-          renderItem={({ item }) => (
-            <SessionCard booking={item} />
+          renderItem={({ item, index }) => (
+            <Rise delay={Math.min(220, index * 35)}>
+              <SessionCard booking={item} />
+            </Rise>
           )}
         />
       )}

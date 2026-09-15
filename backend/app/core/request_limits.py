@@ -13,7 +13,7 @@ class RequestBodyLimit:
         if scope["type"] != "http" or scope["method"] not in {"POST", "PUT", "PATCH"}:
             return await self.app(scope, receive, send)
         path = scope.get("path", "")
-        is_file_upload = path.endswith("/files") or path.endswith("/attachments")
+        is_file_upload = path.endswith("/files") or path.endswith("/attachments") or path.endswith("/avatar")
         limit = MAX_UPLOAD_REQUEST_BYTES if is_file_upload else MAX_JSON_REQUEST_BYTES
         chunks = []
         size = 0

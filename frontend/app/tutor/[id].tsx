@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   RefreshControl,
@@ -20,6 +19,7 @@ import {
 } from "@/lib/api/tutors";
 import { formatCurrency } from "@/lib/api/bookings";
 import { useRefresh } from "@/lib/hooks/useRefresh";
+import { LoadingState, ScreenFade } from "@/components/ui/Motion";
 
 import StatBadge from "@/components/tutor/StatBadge";
 
@@ -106,11 +106,13 @@ export default function TutorDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView
-        className="flex-1 items-center justify-center"
+        className="flex-1 items-center justify-center px-5"
         style={{ backgroundColor: Colors.background }}
         edges={["top"]}
       >
-        <ActivityIndicator size="small" color={Colors.teal} />
+        <View style={{ width: "100%", maxWidth: 470 }}>
+          <LoadingState />
+        </View>
       </SafeAreaView>
     );
   }
@@ -229,6 +231,7 @@ export default function TutorDetailScreen() {
           alignSelf: "center",
         }}
       >
+        <ScreenFade>
         {/* ═══════════════════════════════════════
             PROFILE HEADER
         ═══════════════════════════════════════ */}
@@ -467,6 +470,7 @@ export default function TutorDetailScreen() {
           </View>
         </View>
 
+        </ScreenFade>
       </ScrollView>
 
     </SafeAreaView>

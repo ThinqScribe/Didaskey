@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
+import Animated, { Easing, FadeIn, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,12 +21,18 @@ export function Page({ title, subtitle, children, back = true }: { title: string
   return <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={["top", "bottom"]}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.content}>
       {back && <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} style={{ minHeight: 44, justifyContent: "center" }}><Ionicons name="arrow-back" size={24} color={Colors.primary} /></Pressable>}
-      <View style={{ gap: 6 }}><Text style={ui.title}>{title}</Text>{subtitle && <Text style={ui.muted}>{subtitle}</Text>}</View>
+      <Animated.View entering={FadeIn.duration(260).easing(Easing.out(Easing.cubic))} style={{ gap: 6 }}><Text style={ui.title}>{title}</Text>{subtitle && <Text style={ui.muted}>{subtitle}</Text>}</Animated.View>
       {children}
     </ScrollView>
   </SafeAreaView>;
 }
-export function Card({ children }: { children: ReactNode }) { return <View style={ui.card}>{children}</View>; }
+export function Card({ children }: { children: ReactNode }) {
+  return (
+    <Animated.View entering={FadeInUp.duration(340).easing(Easing.out(Easing.cubic))} style={ui.card}>
+      {children}
+    </Animated.View>
+  );
+}
 export function Action({ label, onPress, busy = false, secondary = false, disabled = false }: { label: string; onPress: () => void; busy?: boolean; secondary?: boolean; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => ({ minHeight: 48, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 13, alignItems: "center", justifyContent: "center", borderWidth: secondary ? 1 : 0, borderColor: secondary ? Colors.border : "transparent", backgroundColor: secondary ? Colors.card : Colors.primary, opacity: disabled || busy ? 0.55 : pressed ? 0.78 : 1 })}>
     {busy ? <ActivityIndicator color={secondary ? Colors.primary : "white"} /> : <Text style={{ fontFamily: "sans-semibold", fontSize: 14, color: secondary ? Colors.primary : "white" }}>{label}</Text>}

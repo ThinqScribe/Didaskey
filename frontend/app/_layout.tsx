@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { Stack, router, useSegments } from "expo-router";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useAuthStore } from "@/lib/store/auth";
 import { Action, ui } from "@/components/ui/Workspace";
+import { BootSplash } from "@/components/onboarding/LaunchScreens";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import "@/global.css";
@@ -17,7 +18,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (status === "loading" || status === "offline") return;
     const group = segments[0];
-    if (status === "unauthenticated" && group && group !== "(auth)") router.replace("/(auth)/sign-in");
+    const isLanding = !group;
+    const authenticatedHome = user?.role === "admin" ? "/admin" : user?.role === "tutor" ? "/(tutor)/dashboard" : "/(tabs)/home";
+    if (status === "unauthenticated" && !isLanding && group !== "(auth)") router.replace("/(auth)/sign-in");
+    if (status === "authenticated" && (isLanding || group === "(auth)")) router.replace(authenticatedHome);
     if (status === "authenticated" && group === "(tabs)" && user?.role !== "student") router.replace(user?.role === "admin" ? "/admin" : "/(tutor)/dashboard");
     if (status === "authenticated" && group === "(tutor)" && user?.role !== "tutor") router.replace(user?.role === "admin" ? "/admin" : "/(tabs)/home");
     if (status === "authenticated" && group === "admin" && user?.role !== "admin") router.replace("/");
@@ -38,8 +42,9 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
-  if (status === "loading" || status === "offline") return <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: "center", justifyContent: "center", padding: 28, gap: 20 }}>
-    {status === "loading" ? <ActivityIndicator color="#0B3F43" /> : <><Text style={ui.heading}>Let’s reconnect</Text><Text style={ui.text}>We could not check your session. Your saved sign-in is still here.</Text><Action label="Try again" onPress={() => { void bootstrap(); }} /><Action label="Sign out" secondary onPress={() => { void signOut(); }} /></>}
+  if (status === "loading") return <BootSplash message="Preparing your learning space." />;
+  if (status === "offline") return <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: "center", justifyContent: "center", padding: 28, gap: 20 }}>
+    <Text style={ui.heading}>Let’s reconnect</Text><Text style={ui.text}>We could not check your session. Your saved sign-in is still here.</Text><Action label="Try again" onPress={() => { void bootstrap(); }} /><Action label="Sign out" secondary onPress={() => { void signOut(); }} />
   </View>;
 
   return (
@@ -49,6 +54,11 @@ export default function RootLayout() {
         contentStyle: { backgroundColor: Colors.background },
       }}
     >
+      <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="(auth)" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="(tutor)" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="admin" options={{ gestureEnabled: false }} />
       {/* Classroom screens are dark — override the warm-ivory background */}
       <Stack.Screen
         name="classroom/lobby"

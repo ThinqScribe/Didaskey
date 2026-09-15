@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Colors, TabBar } from "@/constants";
+import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 import { useAuthStore } from "@/lib/store/auth";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 import { uploadAvatar } from "@/lib/api/auth";
@@ -36,6 +37,8 @@ const EDUCATION_LABELS: Record<string, string> = {
   junior_secondary: "Junior Secondary",
   senior_secondary: "Senior Secondary",
   high_school: "High School",
+  undergraduate: "Undergraduate",
+  postgraduate: "Postgraduate",
 };
 
 function fullEducationLabel(educationLevel?: string | null) {
@@ -228,7 +231,7 @@ export default function StudentProfile() {
     setUploading(true);
     try {
       const asset = result.assets[0];
-      const updated = await uploadAvatar(asset.uri, asset.mimeType ?? "image/jpeg");
+      const updated = await uploadAvatar(asset.uri, asset.mimeType ?? "image/jpeg", (asset as { file?: File }).file);
       setUser(updated);
     } catch {
       Alert.alert("Upload failed", "Could not update your photo. Please try again.");
@@ -265,7 +268,9 @@ export default function StudentProfile() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingScreen} edges={["top"]}>
-        <ActivityIndicator color={Colors.teal} />
+        <View style={styles.loadingShell}>
+          <LoadingState />
+        </View>
       </SafeAreaView>
     );
   }
@@ -298,6 +303,7 @@ export default function StudentProfile() {
         }
         contentContainerStyle={[styles.content, { paddingBottom: TabBar.height + insets.bottom + 34 }]}
       >
+        <Rise>
         <View style={styles.profileCard}>
           <View style={styles.profileTop}>
             <Pressable
@@ -352,7 +358,9 @@ export default function StudentProfile() {
             <StatBlock value={level} label="Level" divider />
           </View>
         </View>
+        </Rise>
 
+        <ScreenFade>
         <View style={styles.tabs}>
           <Pressable accessibilityRole="button" style={styles.tabItem}>
             <Text style={styles.tabTextActive}>Overview</Text>
@@ -362,7 +370,9 @@ export default function StudentProfile() {
             <Text style={styles.tabText}>Activity</Text>
           </Pressable>
         </View>
+        </ScreenFade>
 
+        <Rise delay={90}>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>About & education</Text>
@@ -374,7 +384,9 @@ export default function StudentProfile() {
           <View style={styles.cardDivider} />
           <DetailRow icon="school-outline" label="Education" value={education} />
         </View>
+        </Rise>
 
+        <Rise delay={140}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Contact & privacy</Text>
           <View style={styles.privateRow}>
@@ -388,7 +400,9 @@ export default function StudentProfile() {
             <Ionicons name="chevron-forward" size={22} color={NAVY} />
           </Pressable>
         </View>
+        </Rise>
 
+        <Rise delay={190}>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Recent sessions</Text>
@@ -407,6 +421,7 @@ export default function StudentProfile() {
             ))
           )}
         </View>
+        </Rise>
       </ScrollView>
     </SafeAreaView>
   );
@@ -422,6 +437,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.background,
+  },
+  loadingShell: {
+    width: "100%",
+    maxWidth: 470,
+    paddingHorizontal: 18,
   },
   header: {
     borderBottomWidth: 1,

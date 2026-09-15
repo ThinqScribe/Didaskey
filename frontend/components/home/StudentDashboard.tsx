@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   RefreshControl,
@@ -16,6 +15,7 @@ import { router } from "expo-router";
 
 import { Colors, TabBar } from "@/constants";
 import { UnreadBadge } from "@/components/ui/UnreadBadge";
+import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 import { useUnreadIndicators } from "@/lib/hooks/useUnreadIndicators";
 import { useAuthStore } from "@/lib/store/auth";
@@ -443,14 +443,21 @@ export default function StudentDashboard() {
         }
         contentContainerStyle={styles.scrollContent}
       >
-        <Header avatarUrl={user?.profile_image_url} name={name} learningHours={learningHours} />
+        <ScreenFade>
+          <Header avatarUrl={user?.profile_image_url} name={name} learningHours={learningHours} />
+        </ScreenFade>
 
         <View style={styles.body}>
+          <Rise delay={60}>
           <SectionTitle title="Up next" action="View schedule" onPress={() => router.push("/(tabs)/bookings")} />
           <UpNext booking={upcoming} />
+          </Rise>
 
+          <Rise delay={110}>
           <Momentum progress={progress} />
+          </Rise>
 
+          <Rise delay={160}>
           <SectionTitle title="Pick a subject" action="See all" onPress={() => router.push("/(tabs)/search")} />
           <ScrollView
             horizontal
@@ -467,10 +474,14 @@ export default function StudentDashboard() {
               />
             ))}
           </ScrollView>
+          </Rise>
 
+          <Rise delay={210}>
           <SectionTitle title="Top tutors for you" action="Browse all" onPress={() => router.push("/(tabs)/search")} />
           {loading ? (
-            <ActivityIndicator color={Colors.teal} style={styles.loader} />
+            <View style={styles.loadingPanel}>
+              <LoadingState compact />
+            </View>
           ) : tutors.length ? (
             <ScrollView
               horizontal
@@ -493,6 +504,7 @@ export default function StudentDashboard() {
               <Ionicons name="arrow-forward" size={24} color={NAVY} />
             </Pressable>
           )}
+          </Rise>
 
           {!!error && (
             <Text accessibilityLiveRegion="polite" style={styles.error}>
@@ -1003,8 +1015,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: MUTED_NAVY,
   },
-  loader: {
-    paddingVertical: 28,
+  loadingPanel: {
+    borderRadius: 8,
+    padding: 16,
+    backgroundColor: Colors.card,
   },
   error: {
     marginTop: 18,

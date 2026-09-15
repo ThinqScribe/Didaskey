@@ -49,8 +49,6 @@ class SignupRequest(BaseModel):
     def validate_education_level(self) -> "SignupRequest":
         if self.role == UserRole.PARENT:
             raise ValueError("Didaskey supports student and tutor accounts only")
-        if self.education_level in (EducationLevel.UNDERGRADUATE, EducationLevel.POSTGRADUATE):
-            raise ValueError("Didaskey is for pre-varsity learners")
         if self.role == UserRole.STUDENT and self.education_level is None:
             raise ValueError("Education level is required for student accounts")
         return self

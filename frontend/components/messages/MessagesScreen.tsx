@@ -22,6 +22,7 @@ import * as Sharing from "expo-sharing";
 import { File as FsFile, Paths } from "expo-file-system";
 
 import { Colors } from "@/constants";
+import { LoadingState } from "@/components/ui/Motion";
 import { extractErrorMessage } from "@/lib/api/auth";
 import { apiClient } from "@/lib/api/client";
 import {
@@ -1066,7 +1067,8 @@ export default function MessagesScreen() {
       failedSendPlans.current[retryPlan.clientId] = retryPlan;
       setMessages(current => mergeMessage(current, retryPlan.optimistic));
       await deliverPlan(retryPlan).catch(err => {
-        shouldMarkSendFailed(err) ? markPlanFailed(retryPlan) : schedulePendingFailure(retryPlan);
+        if (shouldMarkSendFailed(err)) markPlanFailed(retryPlan);
+        else schedulePendingFailure(retryPlan);
       });
       return;
     }
@@ -1213,7 +1215,7 @@ export default function MessagesScreen() {
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadConversations} tintColor={Colors.teal} colors={[Colors.teal]} />}
               contentContainerStyle={[styles.inboxContent, { paddingBottom: Math.max(insets.bottom, 18) + 30 }]}
             >
-              {loading ? <ActivityIndicator color={Colors.teal} /> : conversations.length === 0 ? (
+              {loading ? <View style={styles.messageLoading}><LoadingState compact /></View> : conversations.length === 0 ? (
                 <EmptyInbox userRole={userRole} />
               ) : filteredConversations.length === 0 ? (
                 <>
@@ -1346,7 +1348,7 @@ export default function MessagesScreen() {
               onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
             >
               <Text style={styles.todayLabel}>Today</Text>
-              {threadLoading ? <ActivityIndicator color={Colors.teal} /> : messages.length === 0 ? (
+              {threadLoading ? <View style={styles.messageLoading}><LoadingState compact /></View> : messages.length === 0 ? (
                 <View style={styles.emptyThread}>
                   <EmptyMessagesMark compact />
                   <Text style={styles.emptyInboxTitle}>No messages yet</Text>
@@ -1456,6 +1458,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     paddingHorizontal: 18,
     paddingTop: 18,
+  },
+  messageLoading: {
+    paddingTop: 18,
+    paddingHorizontal: 8,
   },
   searchBar: {
     minHeight: 58,

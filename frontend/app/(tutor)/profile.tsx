@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Colors, TabBar } from "@/constants";
+import { LoadingState, Rise, ScreenFade } from "@/components/ui/Motion";
 import { useAuthStore } from "@/lib/store/auth";
 import { useRefresh } from "@/lib/hooks/useRefresh";
 import { uploadAvatar } from "@/lib/api/auth";
@@ -361,7 +362,9 @@ export default function TutorProfile() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingScreen} edges={["top"]}>
-        <ActivityIndicator color={Colors.teal} />
+        <View style={styles.loadingShell}>
+          <LoadingState />
+        </View>
       </SafeAreaView>
     );
   }
@@ -394,6 +397,7 @@ export default function TutorProfile() {
         }
         contentContainerStyle={[styles.content, { paddingBottom: TabBar.height + insets.bottom + 34 }]}
       >
+        <Rise>
         <View style={styles.profileCard}>
           <View style={styles.profileTop}>
             <Pressable
@@ -444,7 +448,9 @@ export default function TutorProfile() {
             <StatBlock value={profile?.total_hours_taught ?? stats?.total_hours_taught ?? 0} label="Hours" divider />
           </View>
         </View>
+        </Rise>
 
+        <ScreenFade>
         <View style={styles.tabs}>
           <Pressable accessibilityRole="button" style={styles.tabItem}>
             <Text style={styles.tabTextActive}>Overview</Text>
@@ -454,7 +460,9 @@ export default function TutorProfile() {
             <Text style={styles.tabText}>Activity</Text>
           </Pressable>
         </View>
+        </ScreenFade>
 
+        <Rise delay={90}>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>About & expertise</Text>
@@ -463,7 +471,7 @@ export default function TutorProfile() {
             </Pressable>
           </View>
           <Text style={styles.aboutText}>
-            {profile?.bio || `Experienced ${primarySubject.toLowerCase()} tutor helping pre-varsity students build confidence and improve every week.`}
+            {profile?.bio || `Experienced ${primarySubject.toLowerCase()} tutor helping students build confidence and improve every week.`}
           </Text>
           <View style={styles.cardDivider} />
           <DetailRow
@@ -479,14 +487,18 @@ export default function TutorProfile() {
             onPress={() => setEditing("qualifications")}
           />
         </View>
+        </Rise>
 
+        <Rise delay={140}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Teaching profile</Text>
           <DetailRow icon="book-outline" label="Subjects" value={subjectList} border />
           <DetailRow icon="cash-outline" label="Rate" value={hourlyRate} border />
           <DetailRow icon="videocam-outline" label="Mode" value={teachingModeLabel(profile?.teaching_mode)} />
         </View>
+        </Rise>
 
+        <Rise delay={190}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Contact & privacy</Text>
           <View style={styles.privateRow}>
@@ -496,7 +508,9 @@ export default function TutorProfile() {
           <DetailRow icon="mail-outline" label="Email" value={user?.email ?? "—"} border />
           <DetailRow icon="location-outline" label="Location" value={location} />
         </View>
+        </Rise>
 
+        <Rise delay={240}>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Availability</Text>
@@ -518,7 +532,9 @@ export default function TutorProfile() {
             ))
           )}
         </View>
+        </Rise>
 
+        <Rise delay={290}>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Recent sessions</Text>
@@ -537,6 +553,7 @@ export default function TutorProfile() {
             ))
           )}
         </View>
+        </Rise>
       </ScrollView>
 
       {editing === "name" && profile && (
@@ -579,6 +596,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.background,
+  },
+  loadingShell: {
+    width: "100%",
+    maxWidth: 470,
+    paddingHorizontal: 18,
   },
   header: {
     borderBottomWidth: 1,

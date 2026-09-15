@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Action, Card, ErrorNotice, Field, ui } from "@/components/ui/Workspace";
+import { LoadingState, ScreenFade } from "@/components/ui/Motion";
 import { JoinSessionButton } from "@/components/classroom/JoinSessionButton";
 import RescheduleSession from "@/components/RescheduleSession";
 import { Colors } from "@/constants";
@@ -143,13 +144,13 @@ export default function SessionDetails({ bookingId }: { bookingId: number }) {
   if (loading && !booking) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={Colors.teal} />
+        <LoadingState compact />
       </View>
     );
   }
 
   return (
-    <View style={styles.stack}>
+    <ScreenFade style={styles.stack}>
       <ErrorNotice message={error} retry={load} />
 
       {booking && lesson ? (
@@ -240,7 +241,7 @@ export default function SessionDetails({ bookingId }: { bookingId: number }) {
           ) : null}
         </>
       ) : null}
-    </View>
+    </ScreenFade>
   );
 }
 
