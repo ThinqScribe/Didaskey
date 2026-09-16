@@ -18,10 +18,13 @@ class Settings(BaseSettings):
     SECRET_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 120
     ALGORITHM: str = "HS256"
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
     FRONTEND_URL: str = "http://localhost:8081"
+    PUBLIC_API_URL: str = ""
     CORS_ORIGINS: str = ""
     IMAGEBB_API_KEY: str = ""
 

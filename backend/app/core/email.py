@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote
 
 import httpx
 
@@ -24,7 +25,8 @@ async def _send_email(to: str, subject: str, html: str) -> None:
 
 
 async def send_email_verification_email(to_email: str, token: str) -> None:
-    link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+    api_base = (settings.PUBLIC_API_URL or settings.FRONTEND_URL).rstrip("/")
+    link = f"{api_base}{settings.API_V1_PREFIX}/auth/verify-email-link?token={quote(token)}"
     await _send_email(
         to_email,
         "Verify your Didaskey email",
@@ -33,7 +35,8 @@ async def send_email_verification_email(to_email: str, token: str) -> None:
 
 
 async def send_password_reset_email(to_email: str, token: str) -> None:
-    link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    api_base = (settings.PUBLIC_API_URL or settings.FRONTEND_URL).rstrip("/")
+    link = f"{api_base}{settings.API_V1_PREFIX}/auth/reset-password-link?token={quote(token)}"
     await _send_email(
         to_email,
         "Reset your Didaskey password",

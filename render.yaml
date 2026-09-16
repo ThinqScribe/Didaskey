@@ -28,8 +28,14 @@ services:
         value: "1440"
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: "30"
+      - key: EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS
+        value: "24"
+      - key: PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+        value: "120"
       - key: ALGORITHM
         value: HS256
+      - key: PUBLIC_API_URL
+        value: https://didaskey-api.onrender.com
       - key: FRONTEND_URL
         value: https://didaskey.com
       - key: CORS_ORIGINS
