@@ -1,132 +1,182 @@
 # Didaskey
 
-A tutoring marketplace for pre-varsity students, tutors, and administrators. No parent experience or university platform is included. See [implementation status and launch runbook](IMPLEMENTATION.md) and the [interface structure](frontend/UI_FLOW.md) for delivered features, screen flow and remaining work. This repository is not yet certified production-ready.
+Didaskey is a mobile tutoring marketplace for pre-varsity, undergraduate, and postgraduate learners. Students can find tutors, book lessons, pay, chat in real time, share files, and join LiveKit-powered classrooms. Tutors can manage students, sessions, earnings, lesson materials, and live classes.
 
----
+The current app targets Android/iOS through Expo. The backend is FastAPI, deployed through Render, with PostgreSQL, Cloudflare R2 file storage, Paystack payments, LiveKit classroom support, and Resend email support.
+
+## Current URLs
+
+| Service | URL |
+|---|---|
+| Production/staging API | `https://didaskey-api.onrender.com` |
+| API health check | `https://didaskey-api.onrender.com/health` |
+| API readiness check | `https://didaskey-api.onrender.com/ready` |
+| API docs | `https://didaskey-api.onrender.com/docs` |
+| Latest Android EAS build | `https://expo.dev/accounts/thinqscribe/projects/didaskey/builds/851cd0e3-92cb-4f1f-be7a-9b0278e7dff3` |
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Mobile | React Native · Expo SDK 57 · Expo Router |
-| Styling | NativeWind (Tailwind CSS) |
-| Backend | FastAPI · Python 3.12 |
-| Database | SQLite (dev) · PostgreSQL (prod) |
-| ORM / Migrations | SQLAlchemy 2 async · Alembic |
-| Auth | JWT (access + refresh tokens) |
+| Mobile app | React Native, Expo SDK 57, Expo Router |
+| Styling | NativeWind, shared design constants |
+| Backend | FastAPI, Python 3.12 |
+| Database | PostgreSQL in production, SQLite for local development |
+| ORM/migrations | SQLAlchemy async, Alembic |
+| Auth | JWT access and refresh tokens |
+| Real-time messaging | WebSockets + REST fallbacks |
+| Push/in-app notifications | Expo notifications |
+| File storage | Cloudflare R2 |
 | Payments | Paystack |
-| Video | LiveKit Cloud (WebView → meet.livekit.io) |
+| Classroom/video | LiveKit |
 | Email | Resend |
-| Image uploads | ImageBB |
+| Hosting | Render backend, EAS mobile builds |
 
----
+## Repository Structure
 
-## Project structure
-
-```
+```text
 Didaskey/
-├── backend/          FastAPI application
+├── backend/
 │   ├── app/
-│   │   ├── api/      Route handlers
-│   │   ├── core/     Config, security, dependencies
-│   │   ├── db/       SQLAlchemy session + base
-│   │   ├── integrations/   livekit.py, payments.py, imagebb.py …
-│   │   ├── models/   SQLAlchemy ORM models
-│   │   ├── schemas/  Pydantic request/response models
-│   │   └── services/ Business logic
-│   ├── alembic/      Database migrations
-│   ├── tests/        Unit tests
-│   ├── pyproject.toml
-│   └── .env.example
-└── frontend/         Expo React Native application
-    ├── app/          Expo Router file-based routes
-    │   ├── (auth)/   Sign in, sign up, verify email
-    │   ├── (tabs)/   Student tab navigation
-    │   ├── (tutor)/  Tutor portal tab navigation
-    │   ├── booking/  Booking flow screens
-    │   └── classroom/ Lobby + live classroom
-    ├── components/   Shared UI components
-    ├── constants/    Colors, layout, tab definitions
-    ├── lib/          API clients, stores, hooks
-    └── package.json
+│   │   ├── api/             FastAPI route registration
+│   │   ├── api/v1/endpoints Route handlers
+│   │   ├── core/            Config, auth, request limits, email helpers
+│   │   ├── db/              Engine/session setup and migration helpers
+│   │   ├── integrations/    Paystack, LiveKit, notifications, R2/ImageBB
+│   │   ├── models/          SQLAlchemy models
+│   │   ├── schemas/         Pydantic request/response schemas
+│   │   ├── services/        Business logic
+│   │   └── workers/         Background task helpers
+│   ├── alembic/             Database migrations
+│   ├── scripts/start.sh     Render/Docker startup script
+│   ├── tests/               Backend tests
+│   ├── Dockerfile
+│   ├── RENDER.md
+│   └── pyproject.toml
+├── frontend/
+│   ├── app/                 Expo Router routes
+│   │   ├── (auth)/          Sign in, sign up, verification, reset password
+│   │   ├── (tabs)/          Student app tabs
+│   │   ├── (tutor)/         Tutor app tabs
+│   │   ├── booking/         Booking flow
+│   │   ├── classroom/       Lobby and classroom screens
+│   │   └── learning/        Learning workspace
+│   ├── components/          Shared UI and feature components
+│   ├── constants/           Colors, layout, tab definitions
+│   ├── lib/                 API clients, hooks, stores, device helpers
+│   ├── assets/              Images, icons, fonts
+│   ├── eas.json             EAS build profiles
+│   └── package.json
+├── render.yaml              Render Blueprint for backend + database
+└── compose.yaml             Local Docker Compose reference
 ```
 
----
+## Features
 
-## Local setup
+### Student App
+
+- Polished onboarding and authentication screens
+- Tutor discovery and tutor detail pages
+- Booking flow with availability and payment
+- Real-time messaging with unread indicators
+- Message replies, edits, deletes, delivery/read states
+- Multi-file chat attachments through Cloudflare R2
+- Learning workspace and lesson files
+- Live classroom lobby and classroom entry
+- Profile photo upload and profile editing support
+- In-app and device notification support
+
+### Tutor App
+
+- Tutor dashboard
+- Student list
+- Session management
+- Earnings display with Didaskey commission logic
+- Messaging with students
+- Live classroom entry
+- File/lesson material sharing
+
+### Backend
+
+- JWT authentication
+- User, tutor, marketplace, booking, billing, classroom, learning, notification, and messaging APIs
+- Alembic migrations
+- Paystack transaction initialization, verification, and webhook integrity checks
+- LiveKit token generation
+- R2-backed private file storage
+- Push device registration
+- Health and readiness endpoints
+
+## Local Development
 
 ### Prerequisites
 
 - Python 3.12+
 - Node.js 22+
-- A [LiveKit Cloud](https://cloud.livekit.io) project (free tier works)
-- A [Paystack](https://paystack.com) account (test keys are fine)
-- A [Resend](https://resend.com) account for transactional email
+- npm
+- Expo/EAS CLI access
+- Android Studio or a physical Android device for local testing
+- Optional but recommended: LiveKit, Paystack, Cloudflare R2, and Resend accounts
 
----
-
-### Backend
+### Backend Setup
 
 ```bash
 cd backend
-
-# Create and activate a virtualenv
-python3 -m venv ../venv
-source ../venv/bin/activate
-
-# Install dependencies
+source ../didaskeyenv/bin/activate
 pip install -e .
-
-# Copy the example env and fill in your values
 cp .env.example .env
-# Edit .env — see the Environment variables section below
-
-# Run the dev server
 alembic upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The API will be available at `http://localhost:8000`.  
-Swagger UI: `http://localhost:8000/docs`
+Local backend:
 
-To seed the database with sample tutors and subjects:
+```text
+http://localhost:8000
+```
+
+Local docs:
+
+```text
+http://localhost:8000/docs
+```
+
+Seed sample data:
 
 ```bash
+cd backend
+source ../didaskeyenv/bin/activate
 python seed.py
 ```
 
----
-
-### Frontend
+### Frontend Setup
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Copy env and set your backend URL
 cp .env.example .env
-# Set EXPO_PUBLIC_API_URL=http://<your-local-ip>:8000
-
-# Start the development server
 npx expo start
 ```
 
-Use a development client compatible with the installed Expo SDK. The classroom embeds LiveKit Meet in a native WebView or web iframe; permissions and reconnect behavior still require real-device testing.
+For local backend testing, set:
 
-For a full production build:
-
-```bash
-npx expo run:android   # requires Android Studio
-npx expo run:ios       # requires Xcode (macOS only)
+```env
+EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:8000
+EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_your_public_key
 ```
 
----
+For hosted backend testing, set:
 
-## Environment variables
+```env
+EXPO_PUBLIC_API_URL=https://didaskey-api.onrender.com
+EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_your_public_key
+```
 
-### Backend — `backend/.env`
+Use a development build for push notification testing. Expo Go does not fully support Android remote push notifications in newer Expo SDK versions.
+
+## Environment Variables
+
+### Backend: `backend/.env`
 
 ```env
 APP_NAME=Didaskey API
@@ -134,108 +184,218 @@ ENVIRONMENT=development
 DEBUG=true
 API_V1_PREFIX=/api/v1
 
-# Database (SQLite for dev, PostgreSQL for prod)
 DATABASE_URL=sqlite+aiosqlite:///./didaskey.db
+REDIS_URL=redis://localhost:6379/0
 
-# Auth
 SECRET_KEY=replace-with-a-long-random-secret
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 ALGORITHM=HS256
 
-# CORS — add your Expo dev URL here
-CORS_ORIGINS=http://localhost:8081,http://<your-ip>:8000
-
-# Email — https://resend.com
-RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL=noreply@yourdomain.com
 FRONTEND_URL=http://localhost:8081
+CORS_ORIGINS=http://localhost:8081,http://localhost:3000
 
-# Image uploads — https://imgbb.com
-IMAGEBB_API_KEY=...
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
 
-# Paystack — https://dashboard.paystack.com/#/settings/developers
-PAYSTACK_SECRET_KEY=sk_test_...
-# Webhook signatures use PAYSTACK_SECRET_KEY.
+PAYSTACK_SECRET_KEY=sk_test_your_secret_key
 
-# LiveKit — https://cloud.livekit.io
 LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=API...
-LIVEKIT_API_SECRET=...
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
 
-# Development flags
+FILE_STORAGE_DRIVER=r2
+R2_BUCKET=didaskey-chat-files
+R2_ENDPOINT=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+R2_REGION=auto
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+
+IMAGEBB_API_KEY=
+
 SKIP_TUTOR_AVAILABILITY_CHECK=false
+CLASSROOM_JOIN_BEFORE_MINUTES=10
+CLASSROOM_JOIN_GRACE_MINUTES=30
+CLASSROOM_TOKEN_TTL_MINUTES=180
 ```
 
-### Frontend — `frontend/.env`
+Production requirements enforced by the backend:
+
+- `ENVIRONMENT=production`
+- `DEBUG=false`
+- `SECRET_KEY` must be at least 32 characters
+- `DATABASE_URL` must use PostgreSQL
+- `FRONTEND_URL` must use HTTPS
+- `CORS_ORIGINS` must be explicit and must not be `*`
+
+Render may provide a `postgresql://...` URL. The backend normalizes it to SQLAlchemy's async driver format automatically.
+
+### Frontend: `frontend/.env`
 
 ```env
-EXPO_PUBLIC_API_URL=http://<your-local-ip>:8000
-EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_...
+EXPO_PUBLIC_API_URL=https://didaskey-api.onrender.com
+EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_your_public_key
 ```
 
----
+`EXPO_PUBLIC_*` values are bundled into the mobile app. Do not put backend secrets in frontend env vars.
 
-## Key features
+## Render Deployment
 
-**For students**
-- Browse and search tutors by subject, rating, and price
-- Book sessions (online or in-person), pay via Paystack
-- Join live classrooms with video, resources, and chat
-- Track upcoming and past sessions
+The backend is configured for Render through `render.yaml`.
 
-**For tutors**
-- Tutor portal with session management
-- Join live classrooms as host
-- End sessions and track attendance
-- Earnings dashboard
+Deploy flow:
 
-**Live classroom**
-- Video powered by LiveKit Cloud
-- LiveKit Meet embedded in native WebView or web iframe
-- Chat tab for in-session messaging
-- Resources tab for sharing materials
-- Automatic attendance tracking (join/leave timestamps)
-- Role-aware navigation (tutors end sessions, students leave)
+1. Commit and push the repository to GitHub.
+2. In Render, create a new Blueprint.
+3. Select this repository.
+4. Leave Blueprint Path blank or set it to `render.yaml`.
+5. Render creates:
+   - `didaskey-api`
+   - `didaskey-db`
+6. Fill the secret env vars requested by Render.
 
----
+Required Render secrets:
 
-## Database migrations
+```text
+RESEND_API_KEY
+RESEND_FROM_EMAIL
+PAYSTACK_SECRET_KEY
+LIVEKIT_URL
+LIVEKIT_API_KEY
+LIVEKIT_API_SECRET
+R2_BUCKET
+R2_ENDPOINT
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+IMAGEBB_API_KEY
+```
 
-Migrations are managed with Alembic:
+The Render start command uses:
+
+```bash
+./scripts/start.sh
+```
+
+That script runs:
+
+```bash
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+```
+
+Render provides `$PORT`; locally the fallback is `8000`.
+
+## EAS Android Preview Builds
+
+The current preview profile in `frontend/eas.json` builds an installable Android APK and points to:
+
+```text
+https://didaskey-api.onrender.com
+```
+
+Start a preview build:
+
+```bash
+cd frontend
+npx eas build --profile preview --platform android
+```
+
+Check latest Android build status:
+
+```bash
+cd frontend
+npx eas build:list --platform android --limit 1
+```
+
+When a build finishes, the EAS build page shows the APK install/download link.
+
+## Database Migrations
 
 ```bash
 cd backend
+source ../didaskeyenv/bin/activate
 
-# Create a new migration
-alembic revision --autogenerate -m "description"
-
-# Apply all pending migrations
+# Apply all migrations
 alembic upgrade head
 
-# Roll back one step
+# Create a migration
+alembic revision --autogenerate -m "description"
+
+# Roll back one migration
 alembic downgrade -1
 ```
 
-Run migrations in every environment: table creation does not upgrade existing schemas. Back up existing databases first, and do not blindly stamp a mismatched schema.
+Do not rely on `create_all` for production schema updates. Always run Alembic migrations.
 
----
+## Testing
 
-## Running tests
+Backend tests:
 
 ```bash
 cd backend
-source ../venv/bin/activate
-pytest
+source ../didaskeyenv/bin/activate
+python -m pytest
 ```
 
----
+Frontend typecheck:
 
-## Deployment notes
+```bash
+cd frontend
+npm run typecheck
+```
 
-- Set `ENVIRONMENT=production` and `DEBUG=false`
-- Switch `DATABASE_URL` to a PostgreSQL connection string
-- Run `alembic upgrade head` before starting the server
-- Set all secrets to production values — never reuse test keys
-- Configure a reverse proxy (nginx/Caddy) in front of uvicorn
-- Set `CORS_ORIGINS` to your production frontend domain only
+Recent backend verification:
+
+```text
+34 passed
+```
+
+## Operational Notes
+
+- Render free services may sleep after inactivity. First requests can be slow.
+- Push notifications require a development or production build, not Expo Go.
+- File upload/download depends on valid R2 credentials.
+- LiveKit classrooms require `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`.
+- Paystack payments require matching frontend public key and backend secret key.
+- Never commit `.env` files or private keys.
+- Rebuild the mobile app after changing `EXPO_PUBLIC_API_URL` or other frontend env vars.
+
+## Useful Commands
+
+```bash
+# Backend dev
+cd backend
+source ../didaskeyenv/bin/activate
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Backend tests
+cd backend
+source ../didaskeyenv/bin/activate
+python -m pytest
+
+# Frontend dev
+cd frontend
+npm install
+npx expo start
+
+# Frontend typecheck
+cd frontend
+npm run typecheck
+
+# Android preview build
+cd frontend
+npx eas build --profile preview --platform android
+```
+
+## Production Checklist
+
+- Confirm Render API `/ready` returns `{"status":"ready"}`
+- Confirm database migrations ran successfully
+- Confirm Paystack keys are correct for test or live mode
+- Confirm R2 bucket permissions and credentials
+- Confirm LiveKit project credentials
+- Confirm Resend sender domain and `RESEND_FROM_EMAIL`
+- Confirm frontend points to the hosted API
+- Build and install a fresh EAS APK
+- Test signup, login, booking, payment, chat, attachments, notifications, and classroom join from two devices
