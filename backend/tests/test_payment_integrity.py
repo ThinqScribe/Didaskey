@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from decimal import Decimal
 from app.core.config import settings
-from app.integrations.payments import _to_kobo, verify_webhook_signature
+from app.integrations.payments import _auth_headers, _to_kobo, verify_webhook_signature
 
 
 def test_paystack_signature_uses_provider_secret(monkeypatch):
@@ -17,6 +17,16 @@ def test_paystack_signature_uses_provider_secret(monkeypatch):
     assert verify_webhook_signature(body, signature)
     assert not verify_webhook_signature(body + b" ", signature)
     assert not verify_webhook_signature(body, "invalid")
+
+
+def test_paystack_secret_is_stripped_for_headers_and_webhooks(monkeypatch):
+    monkeypatch.setattr(settings, "PAYSTACK_SECRET_KEY", "sk_test_example\n")
+    headers = _auth_headers()
+    assert headers["Authorization"] == "Bearer sk_test_example"
+
+    body = b'{"event":"charge.success"}'
+    signature = hmac.new(b"sk_test_example", body, hashlib.sha512).hexdigest()
+    assert verify_webhook_signature(body, signature)
 
 
 def test_currency_conversion_preserves_kobo():

@@ -40,6 +40,10 @@ _TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0)
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 
+def _paystack_secret() -> str:
+    return settings.PAYSTACK_SECRET_KEY.strip()
+
+
 def _auth_headers() -> dict[str, str]:
     """
     Build the Authorization header using the secret key from settings.
@@ -47,7 +51,7 @@ def _auth_headers() -> dict[str, str]:
     Called at request time so the key is never stored in a closure or
     module-level attribute.
     """
-    secret = settings.PAYSTACK_SECRET_KEY
+    secret = _paystack_secret()
     if not secret:
         raise RuntimeError(
             "PAYSTACK_SECRET_KEY is not configured. "
@@ -98,7 +102,7 @@ def verify_webhook_signature(raw_body: bytes, paystack_signature: str) -> bool:
     Uses ``hmac.compare_digest`` for constant-time comparison to prevent
     timing-based side-channel attacks.
     """
-    secret = settings.PAYSTACK_SECRET_KEY
+    secret = _paystack_secret()
     if not secret:
         logger.warning(
             "PAYSTACK_WEBHOOK_SECRET is not configured — "
