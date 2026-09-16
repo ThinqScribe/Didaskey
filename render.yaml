@@ -25,9 +25,9 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "30"
+        value: "1440"
       - key: REFRESH_TOKEN_EXPIRE_DAYS
-        value: "7"
+        value: "30"
       - key: ALGORITHM
         value: HS256
       - key: FRONTEND_URL

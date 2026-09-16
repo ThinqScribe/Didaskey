@@ -56,6 +56,21 @@ export async function clearTokens(): Promise<void> {
   ]);
 }
 
+export async function refreshStoredTokens(): Promise<string> {
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) {
+    throw new Error("No refresh token available");
+  }
+
+  const { data } = await axios.post(
+    `${BASE_URL}/auth/refresh`,
+    { refresh_token: refreshToken },
+    { timeout: 8_000 }
+  );
+  await saveTokens(data.access_token, data.refresh_token);
+  return data.access_token as string;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 function createClient(): AxiosInstance {
@@ -90,12 +105,8 @@ function createClient(): AxiosInstance {
       try {
         if (!refreshPromise) {
           refreshPromise = (async () => {
-            const refreshToken = await getRefreshToken();
-            if (!refreshToken) { await clearTokens(); onSessionExpiredCallback?.(); throw error; }
             try {
-              const { data } = await axios.post(`${BASE_URL}/auth/refresh`, { refresh_token: refreshToken }, { timeout: 8000 });
-              await saveTokens(data.access_token, data.refresh_token);
-              return data.access_token as string;
+              return await refreshStoredTokens();
             } catch (refreshError) {
               if (axios.isAxiosError(refreshError) && [401, 403].includes(refreshError.response?.status ?? 0)) { await clearTokens(); onSessionExpiredCallback?.(); }
               throw refreshError;

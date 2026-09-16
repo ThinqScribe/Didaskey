@@ -20,6 +20,7 @@ import {
   clearTokens,
   getAccessToken,
   registerSessionExpiredHandler,
+  refreshStoredTokens,
   saveTokens,
 } from "@/lib/api/client";
 
@@ -63,11 +64,24 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const user = await getMe();
         set({ status: "authenticated", user });
       } catch (err: any) {
+        const status = err?.response?.status;
+        if (status === 401) {
+          try {
+            await refreshStoredTokens();
+            const user = await getMe();
+            set({ status: "authenticated", user });
+            return;
+          } catch {
+            await clearTokens();
+            set({ status: "unauthenticated", user: null });
+            return;
+          }
+        }
+
         // Only clear tokens on a proper 401 (invalid/expired and unrefreshable token).
         // Network errors (timeout, wrong IP, backend down) should NOT
         // wipe the token — the user is still logged in, just offline.
-        const status = err?.response?.status;
-        if (status === 401 || status === 403) {
+        if (status === 403) {
           await clearTokens();
           set({ status: "unauthenticated", user: null });
         } else {
