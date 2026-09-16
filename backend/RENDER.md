@@ -47,7 +47,8 @@ Then rebuild the Expo app so testers receive the stable backend URL.
 
 ## Notes
 
-- The Docker command runs `alembic upgrade head` before starting the API.
+- The Docker command runs `./scripts/start.sh`, which applies migrations before
+  starting the API.
 - The API listens on Render's `$PORT` automatically.
 - Render's Postgres connection string is normalized to SQLAlchemy's asyncpg
   format by the backend settings layer.
