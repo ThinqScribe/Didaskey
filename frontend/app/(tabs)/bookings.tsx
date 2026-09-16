@@ -25,6 +25,7 @@ import {
   initiatePayment,
   listBookings,
   sessionFormatLabel,
+  verifyBookingPayment,
   type BookingResponse,
   type BookingStatus,
 } from "@/lib/api/bookings";
@@ -510,8 +511,15 @@ export default function BookingsScreen() {
           goToSuccess(updated);
           return;
         }
+        if (attempt === 0 || attempt % 3 === 2) {
+          const verified = await verifyBookingPayment(bookingId);
+          if (verified.status === "confirmed") {
+            goToSuccess(verified);
+            return;
+          }
+        }
       } catch {
-        // keep polling
+        // Network blip or Paystack still pending; keep polling.
       }
       await new Promise(resolve => setTimeout(resolve, 2000));
     }

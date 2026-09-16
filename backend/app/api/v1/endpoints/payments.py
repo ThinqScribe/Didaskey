@@ -28,6 +28,7 @@ from app.core.dependencies import get_current_user, require_role
 from app.db.session import get_db_session
 from app.models.user import User, UserRole
 from app.schemas.billing import (
+    BookingResponse,
     PaymentInitiateRequest,
     PaymentInitiateResponse,
     RefundResponse,
@@ -56,6 +57,26 @@ async def initiate_payment(
     result = await payment_service.initiate_payment(
         payload.booking_id, current_user, db
     )
+    await db.commit()
+    return result
+
+
+@router.post(
+    "/bookings/{booking_id}/verify",
+    response_model=BookingResponse,
+    summary="Verify and confirm a paid booking",
+    description=(
+        "Server-side fallback for mobile checkout redirects. The backend "
+        "verifies the stored Paystack reference directly with Paystack and "
+        "confirms the booking if the charge succeeded."
+    ),
+)
+async def verify_booking_payment(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> BookingResponse:
+    result = await payment_service.verify_booking_payment(booking_id, current_user, db)
     await db.commit()
     return result
 

@@ -177,6 +177,16 @@ export async function initiatePayment(
   return data;
 }
 
+/** Server-side Paystack verification fallback after checkout redirects. */
+export async function verifyBookingPayment(
+  bookingId: number
+): Promise<BookingResponse> {
+  const { data } = await apiClient.post<BookingResponse>(
+    `/payments/bookings/${bookingId}/verify`
+  );
+  return data;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 /**

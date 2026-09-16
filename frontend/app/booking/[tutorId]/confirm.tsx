@@ -16,6 +16,7 @@ import { useAuthStore } from "@/lib/store/auth";
 import {
   createBooking,
   getBooking,
+  verifyBookingPayment,
   type SessionFormat,
   type BookingWithPaystack,
   type BookingResponse,
@@ -199,8 +200,15 @@ export default function ConfirmScreen() {
           goToSuccess(updated);
           return;
         }
+        if (i === 0 || i % 3 === 2) {
+          const verified = await verifyBookingPayment(booking.id);
+          if (verified.status === "confirmed") {
+            goToSuccess(verified);
+            return;
+          }
+        }
       } catch {
-        // network blip — keep polling
+        // Network blip or Paystack still pending — keep polling.
       }
       await new Promise((r) => setTimeout(r, 2000));
     }

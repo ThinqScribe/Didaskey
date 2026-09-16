@@ -49,6 +49,7 @@ from app.models.billing import (
 )
 from app.models.user import User, UserRole
 from app.schemas.billing import (
+    BookingResponse,
     PaymentInitiateResponse,
     PaystackWebhookPayload,
     RefundResponse,
@@ -193,6 +194,64 @@ async def initiate_payment(
     )
 
 
+async def verify_booking_payment(
+    booking_id: int,
+    user: User,
+    db: AsyncSession,
+) -> BookingResponse:
+    """
+    Manually verify a Paystack payment and confirm the booking.
+
+    This is the mobile fallback for cases where Paystack redirects the user
+    back to the app before the webhook has reached us. It never trusts the
+    client: the backend verifies the stored transaction reference directly
+    with Paystack, then applies the same amount/currency/reference checks as
+    the webhook path.
+    """
+    booking = await db.scalar(
+        select(Booking)
+        .where(Booking.id == booking_id)
+        .options(selectinload(Booking.transaction))
+        .with_for_update()
+    )
+    if booking is None:
+        raise _not_found("Booking", booking_id)
+    if user.role != UserRole.ADMIN and booking.student_id != user.id:
+        raise _forbidden("You do not have access to this booking.")
+    if booking.status == BookingStatus.CONFIRMED:
+        return await booking_service.get_booking(booking.id, user, db)
+    if booking.status != BookingStatus.PENDING_PAYMENT:
+        raise _bad_request(
+            f"Payment can only be verified for pending bookings (current: '{booking.status}')."
+        )
+
+    txn = booking.transaction
+    if txn is None:
+        raise _not_found("Transaction for booking", booking_id)
+    if txn.status in (TransactionStatus.SUCCESS, TransactionStatus.REFUNDED):
+        await booking_service.confirm_booking(booking.id, db)
+        return await booking_service.get_booking(booking.id, user, db)
+
+    try:
+        verified = await paystack.verify_transaction(txn.paystack_reference)
+    except Exception as exc:
+        logger.error(
+            "Manual payment verify failed booking_id=%s reference=%s error=%s",
+            booking.id,
+            txn.paystack_reference,
+            exc,
+        )
+        raise HTTPException(503, "Payment verification is temporarily unavailable.") from exc
+
+    if verified.get("status") != "success":
+        raise _bad_request("Payment is not completed yet.")
+
+    _apply_verified_success(txn, verified)
+    await db.flush()
+    await booking_service.confirm_booking(txn.booking_id, db)
+    return await booking_service.get_booking(booking.id, user, db)
+
+
 # ── Webhook processing ────────────────────────────────────────────────────────
 
 
@@ -279,6 +338,34 @@ async def _process_refund(event: str, data: dict, db: AsyncSession) -> None:
     await db.flush()
 
 
+def _verified_matches_transaction(txn: Transaction, verified: dict) -> bool:
+    return (
+        Decimal(str(verified.get("amount", -1))) == txn.amount * 100
+        and str(verified.get("currency", "")).upper() == txn.currency.upper()
+        and verified.get("reference") == txn.paystack_reference
+    )
+
+
+def _paystack_paid_at(value: object) -> datetime:
+    if isinstance(value, str) and value:
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    return datetime.now(tz=timezone.utc)
+
+
+def _apply_verified_success(txn: Transaction, verified: dict) -> None:
+    if not _verified_matches_transaction(txn, verified):
+        raise _bad_request("Payment verification failed.")
+
+    txn.status = TransactionStatus.SUCCESS
+    if verified.get("id") is not None:
+        txn.paystack_transaction_id = str(verified["id"])
+    txn.gateway_response = verified.get("gateway_response")
+    txn.paid_at = _paystack_paid_at(verified.get("paid_at"))
+
+
 async def _process_charge_success(
     data: "PaystackWebhookData",  # type: ignore[name-defined]  # noqa: F821
     db: AsyncSession,
@@ -334,10 +421,11 @@ async def _process_charge_success(
 
     # ── 4. Amount cross-check ─────────────────────────────────────────────────
     webhook_amount = Decimal(str(data.amount)) / Decimal("100")
-    if (webhook_amount != txn.amount or data.currency.upper() != txn.currency.upper()
-        or Decimal(str(verified.get("amount", -1))) != txn.amount * 100
-        or str(verified.get("currency", "")).upper() != txn.currency.upper()
-        or verified.get("reference") != txn.paystack_reference):
+    if (
+        webhook_amount != txn.amount
+        or data.currency.upper() != txn.currency.upper()
+        or not _verified_matches_transaction(txn, verified)
+    ):
         logger.error(
             "Webhook charge.success: amount mismatch reference=%s "
             "expected=%s received=%s — aborting",
@@ -348,21 +436,15 @@ async def _process_charge_success(
         return
 
     # ── 5. Update transaction ─────────────────────────────────────────────────
-    txn.status = TransactionStatus.SUCCESS
-    txn.paystack_transaction_id = str(data.id)
-    txn.gateway_response = data.gateway_response
-
-    paid_at_str = data.paid_at
-    if paid_at_str:
-        try:
-            txn.paid_at = datetime.fromisoformat(
-                paid_at_str.replace("Z", "+00:00")
-            )
-        except ValueError:
-            txn.paid_at = datetime.now(tz=timezone.utc)
-    else:
-        txn.paid_at = datetime.now(tz=timezone.utc)
-
+    _apply_verified_success(
+        txn,
+        {
+            **verified,
+            "id": data.id,
+            "gateway_response": data.gateway_response,
+            "paid_at": data.paid_at,
+        },
+    )
     await db.flush()
 
     # ── 6. Confirm booking ────────────────────────────────────────────────────
